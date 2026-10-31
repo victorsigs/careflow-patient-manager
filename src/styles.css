@@ -19,6 +19,11 @@
  */
 
 @theme inline {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-surface: var(--surface);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -62,26 +67,49 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
+  --radius: 0.5rem;
+  --background: oklch(0.975 0.006 190);
+  --foreground: oklch(0.22 0.03 220);
+  --surface: oklch(0.955 0.01 190);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
+  --card-foreground: oklch(0.22 0.03 220);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --popover-foreground: oklch(0.22 0.03 220);
+  --primary: oklch(0.45 0.085 195);
+  --primary-foreground: oklch(0.98 0.01 190);
+  --secondary: oklch(0.93 0.02 190);
+  --secondary-foreground: oklch(0.3 0.05 200);
+  --muted: oklch(0.94 0.01 200);
+  --muted-foreground: oklch(0.5 0.025 220);
+  --accent: oklch(0.92 0.03 190);
+  --accent-foreground: oklch(0.3 0.06 200);
+  --destructive: oklch(0.56 0.2 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --success: oklch(0.58 0.13 155);
+  --warning: oklch(0.72 0.15 70);
+  --border: oklch(0.89 0.015 200);
+  --input: oklch(0.89 0.015 200);
+  --ring: oklch(0.45 0.085 195);
+  --cat-imaging: oklch(0.55 0.15 250);
+  --cat-lab: oklch(0.55 0.15 145);
+  --cat-cardio: oklch(0.57 0.2 20);
+  --cat-endo: oklch(0.6 0.14 65);
+  --cat-other: oklch(0.5 0.03 240);
+  --sp-cardio: oklch(0.57 0.2 20);
+  --sp-neuro: oklch(0.52 0.17 290);
+  --sp-surg: oklch(0.5 0.12 230);
+  --sp-ati: oklch(0.5 0.2 0);
+  --sp-nefro: oklch(0.55 0.13 220);
+  --sp-gastro: oklch(0.6 0.14 70);
+  --sp-pneumo: oklch(0.6 0.11 200);
+  --sp-diabet: oklch(0.55 0.15 330);
+  --sp-psih: oklch(0.55 0.12 310);
+  --sp-orl: oklch(0.58 0.12 110);
+  --sp-oftalmo: oklch(0.55 0.12 175);
+  --sp-derma: oklch(0.6 0.13 45);
+  --sp-infect: oklch(0.55 0.15 140);
+  --sp-orto: oklch(0.45 0.05 60);
+  --sp-gine: oklch(0.6 0.15 350);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -141,4 +169,15 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+}
+
+/* Color-coded tag: set --tag inline to a category/specialty token */
+@utility tag {
+  color: var(--tag);
+  background-color: color-mix(in oklab, var(--tag) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--tag) 30%, transparent);
+}
+@utility tag-solid {
+  background-color: var(--tag);
+  color: var(--primary-foreground);
 }
