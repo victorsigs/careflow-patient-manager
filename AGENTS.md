@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Ward data lives in a persisted Zustand store (src/lib/store.ts, localStorage, skipHydration + rehydrate in useEffect); presets/DRG/specialties in src/lib/ward-data.ts — keeps SSR hydration-safe and makes a later move to cloud sync a single-module swap.
+- Consult and investigation pickers are filtered by task kind in PatientCard; preserve legacy DRG storage fields only for backup compatibility, with no DRG interface — avoids altering existing patient data during presentation changes.

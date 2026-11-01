@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from "react";
-import { BedDouble, CalendarClock, FileText, LogOut, MoreVertical, Pencil, Plus, Trash2, X, Stethoscope, FlaskConical, ListTodo } from "lucide-react";
+import { BedDouble, CalendarClock, LogOut, MoreVertical, Pencil, Plus, Trash2, X, Stethoscope, FlaskConical, ListTodo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -7,7 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useWard } from "@/lib/store";
 import { tr } from "@/lib/i18n";
-import { DRGS, INVESTIGATIONS, INV_CATEGORIES, SPECIALTIES } from "@/lib/ward-data";
+import { INVESTIGATIONS, INV_CATEGORIES, SPECIALTIES } from "@/lib/ward-data";
 import { daysAdmitted, dischargeState, nextStatus, type Patient, type Task } from "@/lib/patients";
 import { cn } from "@/lib/utils";
 
@@ -23,12 +23,11 @@ export function taskColor(t: Task): string {
 }
 
 export function PatientCard({ patient, today, onEdit }: { patient: Patient; today: string; onEdit: () => void }) {
-  const { lang, updatePatient, removePatient, updateTask, removeTask, addTask, toggleDrg } = useWard();
+  const { lang, updatePatient, removePatient, updateTask, removeTask, addTask } = useWard();
   const t = tr(lang);
   const ds = dischargeState(patient.discharge, today);
   const [custom, setCustom] = useState("");
-  const [addOpen, setAddOpen] = useState(false);
-  const [drgOpen, setDrgOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState<"investigation" | "consult" | null>(null);
 
   const open = patient.tasks.filter((x) => x.status !== "done");
   const done = patient.tasks.filter((x) => x.status === "done");
@@ -73,57 +72,31 @@ export function PatientCard({ patient, today, onEdit }: { patient: Patient; toda
           <span className="rounded bg-secondary px-2 py-0.5 font-medium text-secondary-foreground">
             {t("day")} {daysAdmitted(patient.admitted, today)}
           </span>
+        </div>
+
           <label
+            htmlFor={`discharge-${patient.id}`}
             className={cn(
-              "flex items-center gap-1 rounded border px-2 py-0.5",
+              "mt-1 flex flex-col gap-2 rounded-md border border-primary/30 bg-card p-3 text-sm transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/20",
               ds === "overdue" && "border-destructive bg-destructive/10 text-destructive",
               ds === "today" && "border-warning bg-warning/15 font-semibold",
               ds === "tomorrow" && "border-warning/60",
             )}
           >
-            <CalendarClock className="h-3.5 w-3.5" />
-            {t("discharge")}:
-            <input
+            <span className="flex items-center gap-2 font-medium">
+              <CalendarClock className="h-4 w-4 text-primary" />
+              {t("dischargeDate")}
+              <Pencil className="ml-auto h-3.5 w-3.5 text-primary" />
+            </span>
+            <Input
+              id={`discharge-${patient.id}`}
               type="date"
               value={patient.discharge ?? ""}
               onChange={(e) => updatePatient(patient.id, { discharge: e.target.value || undefined })}
-              className="bg-transparent outline-none"
+              className="h-9 w-full min-w-0 cursor-pointer bg-background text-foreground"
             />
-            {dsLabel && <span>· {dsLabel}</span>}
+            {dsLabel && <span className="text-xs font-medium">{dsLabel}</span>}
           </label>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          {patient.drgs.map((code) => (
-            <span key={code} className="group inline-flex items-center gap-1 rounded border bg-card px-1.5 py-0.5 font-mono text-xs" title={DRGS.find((d) => d.code === code)?.[lang]}>
-              {code}
-              <button onClick={() => toggleDrg(patient.id, code)} aria-label="remove" className="opacity-50 hover:opacity-100"><X className="h-3 w-3" /></button>
-            </span>
-          ))}
-          <Popover open={drgOpen} onOpenChange={setDrgOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-6 gap-1 px-2 text-xs"><FileText className="h-3 w-3" />{t("drg")}</Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[420px] p-0" align="start">
-              <Command>
-                <CommandInput placeholder={t("drgSearch")} />
-                <CommandList>
-                  <CommandEmpty>—</CommandEmpty>
-                  <CommandGroup>
-                    {DRGS.map((d) => (
-                      <CommandItem key={d.code} value={`${d.code} ${d.ro} ${d.en}`} onSelect={() => toggleDrg(patient.id, d.code)}>
-                        <span className={cn("w-12 font-mono text-xs font-medium", patient.drgs.includes(d.code) && "text-primary")}>{d.code}</span>
-                        <span className="flex-1 text-sm">{d[lang]}</span>
-                        <span className="font-mono text-xs text-muted-foreground">{t("rw")} {d.rw.toFixed(2)}</span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-                <p className="border-t px-3 py-2 text-xs text-muted-foreground">{t("drgNote")}</p>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </div>
       </div>
 
       {/* Tasks */}
@@ -139,36 +112,42 @@ export function PatientCard({ patient, today, onEdit }: { patient: Patient; toda
         </ul>
 
         <div className="mt-auto flex flex-wrap gap-2 pt-2">
-          <Popover open={addOpen} onOpenChange={setAddOpen}>
+          {(["consult", "investigation"] as const).map((kind) => (
+          <Popover key={kind} open={addOpen === kind} onOpenChange={(open) => setAddOpen(open ? kind : null)}>
             <PopoverTrigger asChild>
-              <Button size="sm" variant="secondary" className="gap-1"><Plus className="h-4 w-4" />{t("addTask")}</Button>
+              <Button size="sm" variant="outline" className="gap-1.5">
+                {kind === "consult" ? <Stethoscope className="h-4 w-4 text-primary" /> : <FlaskConical className="h-4 w-4 text-primary" />}
+                {t(kind === "consult" ? "addConsult" : "addInvestigations")}
+                <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+              </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[360px] p-0" align="start">
+            <PopoverContent className="w-[360px] max-w-[calc(100vw-2rem)] p-0" align="start">
               <Command>
-                <CommandInput placeholder="Doppler, CT, Cardio…" />
+                <CommandInput placeholder={t(kind === "consult" ? "searchConsult" : "searchInvestigation")} />
                 <CommandList className="max-h-80">
                   <CommandEmpty>—</CommandEmpty>
-                  <CommandGroup heading={t("investigations")}>
+                  {kind === "investigation" && <CommandGroup heading={t("investigations")}>
                     {INVESTIGATIONS.map((i) => (
-                      <CommandItem key={i.key} value={`${i.ro} ${i.en}`} onSelect={() => { addTask(patient.id, { kind: "investigation", key: i.key, label: i[lang], status: "pending" }); setAddOpen(false); }}>
+                      <CommandItem key={i.key} value={`${i.ro} ${i.en}`} onSelect={() => { addTask(patient.id, { kind: "investigation", key: i.key, label: i[lang], status: "pending" }); setAddOpen(null); }}>
                         <FlaskConical className="h-4 w-4" style={{ color: INV_CATEGORIES[i.cat].color }} />
                         <span className="flex-1">{i[lang]}</span>
                         <span className="text-xs" style={{ color: INV_CATEGORIES[i.cat].color }}>{INV_CATEGORIES[i.cat][lang]}</span>
                       </CommandItem>
                     ))}
-                  </CommandGroup>
-                  <CommandGroup heading={t("consults")}>
+                  </CommandGroup>}
+                  {kind === "consult" && <CommandGroup heading={t("consults")}>
                     {SPECIALTIES.map((s) => (
-                      <CommandItem key={s.key} value={`consult ${s.ro} ${s.en}`} onSelect={() => { addTask(patient.id, { kind: "consult", key: s.key, label: s[lang], status: "pending" }); setAddOpen(false); }}>
+                      <CommandItem key={s.key} value={`consult ${s.ro} ${s.en}`} onSelect={() => { addTask(patient.id, { kind: "consult", key: s.key, label: s[lang], status: "pending" }); setAddOpen(null); }}>
                         <s.icon className="h-4 w-4" style={{ color: s.color }} />
                         <span>{s[lang]}</span>
                       </CommandItem>
                     ))}
-                  </CommandGroup>
+                  </CommandGroup>}
                 </CommandList>
               </Command>
             </PopoverContent>
           </Popover>
+          ))}
           <form className="flex flex-1 gap-2" onSubmit={(e) => { e.preventDefault(); if (!custom.trim()) return; addTask(patient.id, { kind: "custom", label: custom.trim(), status: "pending" }); setCustom(""); }}>
             <Input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={t("customTask")} className="h-8 min-w-40" />
           </form>

@@ -15,9 +15,11 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Ward Board — admitted patients & tasks" },
-      { name: "description", content: "Track admitted patients, investigations, consults, discharge dates and DRG codes in one ward board." },
+      { name: "description", content: "Track admitted patients, investigations, consults and editable discharge dates in one ward board." },
       { property: "og:title", content: "Ward Board — admitted patients & tasks" },
-      { property: "og:description", content: "Patient to-do board for Romanian hospital wards: investigations, consults, DRG." },
+      { property: "og:description", content: "Patient to-do board for Romanian hospital wards: investigations, consults and discharge planning." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Index,
