@@ -7,7 +7,7 @@ import { useWard } from "@/lib/store";
 import { tr } from "@/lib/i18n";
 import { todayISO, type Patient } from "@/lib/patients";
 
-export function PatientDialog({ open, onOpenChange, patient }: { open: boolean; onOpenChange: (o: boolean) => void; patient?: Patient }) {
+export function PatientDialog({ open, onOpenChange, patient }: { open: boolean; onOpenChange: (o: boolean) => void; patient?: Patient | undefined }) {
   const { lang, addPatient, updatePatient } = useWard();
   const t = tr(lang);
   const empty = { name: "", age: "", bed: "", fo: "", diagnosis: "", admitted: todayISO(), discharge: "" };
