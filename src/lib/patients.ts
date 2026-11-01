@@ -4,25 +4,25 @@ export type TaskKind = "investigation" | "consult" | "custom";
 export interface Task {
   id: string;
   kind: TaskKind;
-  key?: string; // preset key (investigation or specialty)
+  key?: string | undefined; // preset key (investigation or specialty)
   label: string;
   status: TaskStatus;
-  date?: string;
-  note?: string;
+  date?: string | undefined;
+  note?: string | undefined;
 }
 
 export interface Patient {
   id: string;
   name: string;
-  age?: number;
+  age?: number | undefined;
   bed: string;
   fo: string;
   diagnosis: string;
   admitted: string; // YYYY-MM-DD
-  discharge?: string; // YYYY-MM-DD
+  discharge?: string | undefined; // YYYY-MM-DD
   drgs: string[];
   tasks: Task[];
-  dischargedAt?: string;
+  dischargedAt?: string | undefined;
 }
 
 export function todayISO(now = new Date()): string {
@@ -52,5 +52,5 @@ export function dischargeState(discharge: string | undefined, today: string): Di
 
 export const STATUS_ORDER: TaskStatus[] = ["pending", "scheduled", "done"];
 export function nextStatus(s: TaskStatus): TaskStatus {
-  return STATUS_ORDER[(STATUS_ORDER.indexOf(s) + 1) % STATUS_ORDER.length];
+  return STATUS_ORDER[(STATUS_ORDER.indexOf(s) + 1) % STATUS_ORDER.length] ?? "pending";
 }

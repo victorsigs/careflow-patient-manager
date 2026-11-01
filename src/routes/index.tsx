@@ -35,7 +35,7 @@ function Index() {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<"bed" | "discharge">("bed");
-  const [dialog, setDialog] = useState<{ open: boolean; patient?: Patient }>({ open: false });
+  const [dialog, setDialog] = useState<{ open: boolean; patient?: Patient | undefined }>({ open: false });
   const fileRef = useRef<HTMLInputElement>(null);
   const today = hydrated ? todayISO() : "1970-01-01";
 
