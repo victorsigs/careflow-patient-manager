@@ -2,6 +2,7 @@ import {
   Heart, Brain, Scissors, Activity, Droplets, Pill, Wind, Syringe, Smile, Ear, Eye, Hand, Bug, Bone, Baby,
   type LucideIcon,
 } from "lucide-react";
+import { IMAGING } from "./imaging";
 
 export type Lang = "ro" | "en";
 
@@ -16,12 +17,7 @@ export const INV_CATEGORIES: Record<InvCategory, { ro: string; en: string; color
 };
 
 export const INVESTIGATIONS: { key: string; cat: InvCategory; ro: string; en: string }[] = [
-  { key: "doppler", cat: "imaging", ro: "Eco Doppler", en: "Doppler ultrasound" },
-  { key: "ct", cat: "imaging", ro: "CT", en: "CT scan" },
-  { key: "angioct", cat: "imaging", ro: "Angio-CT", en: "CT angiography" },
-  { key: "mri", cat: "imaging", ro: "IRM", en: "MRI" },
-  { key: "rx", cat: "imaging", ro: "Radiografie", en: "X-ray" },
-  { key: "eco", cat: "imaging", ro: "Ecografie abdominală", en: "Abdominal ultrasound" },
+  ...IMAGING,
   { key: "hlg", cat: "lab", ro: "Hemoleucogramă", en: "Complete blood count" },
   { key: "bio", cat: "lab", ro: "Biochimie", en: "Biochemistry panel" },
   { key: "coag", cat: "lab", ro: "Coagulare (INR, aPTT)", en: "Coagulation (INR, aPTT)" },
@@ -29,7 +25,6 @@ export const INVESTIGATIONS: { key: string; cat: InvCategory; ro: string; en: st
   { key: "uro", cat: "lab", ro: "Urocultură", en: "Urine culture" },
   { key: "gaz", cat: "lab", ro: "Astrup", en: "Blood gases" },
   { key: "ekg", cat: "cardio", ro: "EKG", en: "ECG" },
-  { key: "ecocord", cat: "cardio", ro: "Ecocardiografie", en: "Echocardiography" },
   { key: "holter", cat: "cardio", ro: "Holter EKG", en: "Holter ECG" },
   { key: "eds", cat: "endo", ro: "Endoscopie digestivă superioară", en: "Upper GI endoscopy" },
   { key: "colono", cat: "endo", ro: "Colonoscopie", en: "Colonoscopy" },

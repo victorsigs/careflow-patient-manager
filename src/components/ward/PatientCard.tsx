@@ -10,6 +10,7 @@ import { tr } from "@/lib/i18n";
 import { INVESTIGATIONS, INV_CATEGORIES, SPECIALTIES } from "@/lib/ward-data";
 import { daysAdmitted, dischargeState, nextStatus, type Patient, type Task } from "@/lib/patients";
 import { cn } from "@/lib/utils";
+import { InvestigationPicker } from "./InvestigationPicker";
 
 const tagStyle = (c: string) => ({ "--tag": c }) as CSSProperties;
 
@@ -17,7 +18,7 @@ export function taskColor(t: Task): string {
   if (t.kind === "consult") return SPECIALTIES.find((s) => s.key === t.key)?.color ?? "var(--cat-other)";
   if (t.kind === "investigation") {
     const inv = INVESTIGATIONS.find((i) => i.key === t.key);
-    return inv ? INV_CATEGORIES[inv.cat].color : "var(--cat-other)";
+    return inv ? INV_CATEGORIES[inv.cat].color : ["ct", "angioct", "mri", "rx", "eco", "ecocord"].includes(t.key ?? "") ? INV_CATEGORIES.imaging.color : "var(--cat-other)";
   }
   return "var(--cat-other)";
 }
@@ -28,6 +29,7 @@ export function PatientCard({ patient, today, onEdit }: { patient: Patient; toda
   const ds = dischargeState(patient.discharge, today);
   const [custom, setCustom] = useState("");
   const [addOpen, setAddOpen] = useState<"investigation" | "consult" | null>(null);
+  const [investigationOpen, setInvestigationOpen] = useState(false);
 
   const open = patient.tasks.filter((x) => x.status !== "done");
   const done = patient.tasks.filter((x) => x.status === "done");
@@ -112,29 +114,21 @@ export function PatientCard({ patient, today, onEdit }: { patient: Patient; toda
         </ul>
 
         <div className="mt-auto flex flex-wrap gap-2 pt-2">
-          {(["consult", "investigation"] as const).map((kind) => (
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setInvestigationOpen(true)}><FlaskConical className="h-4 w-4 text-primary" />{t("addInvestigations")}<Plus className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+          {(["consult"] as const).map((kind) => (
           <Popover key={kind} open={addOpen === kind} onOpenChange={(open) => setAddOpen(open ? kind : null)}>
             <PopoverTrigger asChild>
               <Button size="sm" variant="outline" className="gap-1.5">
-                {kind === "consult" ? <Stethoscope className="h-4 w-4 text-primary" /> : <FlaskConical className="h-4 w-4 text-primary" />}
-                {t(kind === "consult" ? "addConsult" : "addInvestigations")}
+                 <Stethoscope className="h-4 w-4 text-primary" />
+                 {t("addConsult")}
                 <Plus className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[360px] max-w-[calc(100vw-2rem)] p-0" align="start">
               <Command>
-                <CommandInput placeholder={t(kind === "consult" ? "searchConsult" : "searchInvestigation")} />
+                 <CommandInput placeholder={t("searchConsult")} />
                 <CommandList className="max-h-80">
                   <CommandEmpty>—</CommandEmpty>
-                  {kind === "investigation" && <CommandGroup heading={t("investigations")}>
-                    {INVESTIGATIONS.map((i) => (
-                      <CommandItem key={i.key} value={`${i.ro} ${i.en}`} onSelect={() => { addTask(patient.id, { kind: "investigation", key: i.key, label: i[lang], status: "pending" }); setAddOpen(null); }}>
-                        <FlaskConical className="h-4 w-4" style={{ color: INV_CATEGORIES[i.cat].color }} />
-                        <span className="flex-1">{i[lang]}</span>
-                        <span className="text-xs" style={{ color: INV_CATEGORIES[i.cat].color }}>{INV_CATEGORIES[i.cat][lang]}</span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>}
                   {kind === "consult" && <CommandGroup heading={t("consults")}>
                     {SPECIALTIES.map((s) => (
                       <CommandItem key={s.key} value={`consult ${s.ro} ${s.en}`} onSelect={() => { addTask(patient.id, { kind: "consult", key: s.key, label: s[lang], status: "pending" }); setAddOpen(null); }}>
@@ -153,6 +147,7 @@ export function PatientCard({ patient, today, onEdit }: { patient: Patient; toda
           </form>
         </div>
       </div>
+      <InvestigationPicker patientId={patient.id} open={investigationOpen} onOpenChange={setInvestigationOpen} />
     </article>
   );
 }
@@ -167,18 +162,18 @@ function TaskRow({ task, lang, onCycle, onDate, onRemove }: { task: Task; lang: 
   const isDone = task.status === "done";
 
   return (
-    <li className={cn("tag flex items-center gap-2 rounded-md px-2 py-1.5 text-sm", isDone && "opacity-50")} style={tagStyle(color)}>
+    <li className={cn("tag flex flex-wrap items-center gap-2 rounded-md px-2 py-1.5 text-sm", isDone && "opacity-50")} style={tagStyle(color)}>
       <Icon className="h-4 w-4 shrink-0" />
-      <span className={cn("flex-1 font-medium text-foreground", isDone && "line-through")}>{label}</span>
+      <span className={cn("min-w-0 flex-1 basis-40 break-words font-medium text-foreground", isDone && "line-through")}>{label}{task.contrast !== undefined && <span className="block text-xs font-normal">{t(task.contrast ? "withContrast" : "withoutContrast")}</span>}</span>
       <input type="date" value={task.date ?? ""} onChange={(e) => onDate(e.target.value)} className="w-[7.5rem] bg-transparent text-xs text-muted-foreground outline-none" aria-label={t("date")} />
-      <button onClick={onCycle}
-        className={cn("rounded px-2 py-0.5 text-xs font-semibold",
+      <Button variant="ghost" size="sm" onClick={onCycle}
+        className={cn("h-6 rounded px-2 py-0.5 text-xs font-semibold",
           task.status === "pending" && "bg-card text-foreground ring-1 ring-border",
           task.status === "scheduled" && "bg-warning/25 text-foreground",
           task.status === "done" && "bg-success text-primary-foreground")}>
         {t(task.status)}
-      </button>
-      <button onClick={onRemove} className="text-muted-foreground hover:text-destructive" aria-label={t("delete")}><X className="h-4 w-4" /></button>
+      </Button>
+      <Button variant="ghost" size="icon" onClick={onRemove} className="h-6 w-6 text-muted-foreground hover:text-destructive" aria-label={t("delete")}><X className="h-4 w-4" /></Button>
     </li>
   );
 }
