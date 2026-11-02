@@ -44,7 +44,7 @@ export function InvestigationPicker({ patientId, open, onOpenChange }: { patient
         {rows.map((i, index) => {
           const favorite = favorites.includes(i.key);
           const previousFavorite = index > 0 && favorites.includes(rows[index - 1]?.key ?? "");
-          const im = "modality" in i ? i : undefined;
+          const im = IMAGING.find(item => item.key === i.key);
           return <div key={i.key}>
             {index === 0 && favorite && <h3 className="bg-surface px-2 py-2 text-xs font-semibold text-primary">{t("favorites")}</h3>}
             {(index === 0 && !favorite || previousFavorite && !favorite) && <h3 className="bg-surface px-2 py-2 text-xs font-semibold text-muted-foreground">{t("investigations")} · {rows.filter(r => !favorites.includes(r.key)).length}</h3>}
@@ -56,7 +56,7 @@ export function InvestigationPicker({ patientId, open, onOpenChange }: { patient
           </div>;
         })}
       </div>
-      <div className="flex items-center justify-between border-t pt-3"><span role="status" className="flex items-center gap-1 text-sm text-primary">{added.length > 0 && <><Check className="h-4 w-4" />{t("added")}: {added.length}</>}</span><Button onClick={() => onOpenChange(false)}>{t("done")}</Button></div>
+      <div className="flex items-center justify-between border-t pt-3"><span role="status" className="flex items-center gap-1 text-sm text-primary">{added.length > 0 && <><Check className="h-4 w-4" />{t("added")}: {added.length}</>}</span><Button onClick={() => { setAdded([]); onOpenChange(false); }}>{t("done")}</Button></div>
     </DialogContent>
   </Dialog>;
 }
