@@ -86,7 +86,7 @@ function Index() {
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground"><Activity className="h-4 w-4" /></div>
             <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
             <ToggleGroup type="single" size="sm" value={lang} onValueChange={(v) => v && setLang(v as "ro" | "en")} variant="outline">
               <ToggleGroupItem value="ro">RO</ToggleGroupItem>
               <ToggleGroupItem value="en">EN</ToggleGroupItem>
@@ -120,7 +120,7 @@ function Index() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("search")} className="pl-8" />
           </div>
-          <ToggleGroup type="single" size="sm" variant="outline" value={filter} onValueChange={(v) => v && setFilter(v as Filter)}>
+          <ToggleGroup className="max-w-full flex-wrap justify-start" type="single" size="sm" variant="outline" value={filter} onValueChange={(v) => v && setFilter(v as Filter)}>
             <ToggleGroupItem value="all">{t("all")}</ToggleGroupItem>
             <ToggleGroupItem value="consults">{t("pendingConsults")}</ToggleGroupItem>
             <ToggleGroupItem value="discharge">{t("dischargeSoon")}</ToggleGroupItem>

@@ -25,7 +25,7 @@ export function InvestigationPicker({ patientId, open, onOpenChange }: { patient
   const others = INVESTIGATIONS.filter(i => i.cat !== "imaging" && `${i.ro} ${i.en}`.toLowerCase().includes(q.toLowerCase())).sort((a,b) => Number(favorites.includes(b.key)) - Number(favorites.includes(a.key)));
   const rows = mode === "imaging" ? imaging : others;
   return <Dialog open={open} onOpenChange={o => { if (!o) setAdded([]); onOpenChange(o); }}>
-    <DialogContent className="flex max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl flex-col gap-3 p-4 sm:p-6" aria-describedby={undefined}>
+    <DialogContent className="flex max-h-[min(90dvh,800px)] w-[calc(100%-2rem)] max-w-3xl flex-col gap-3 p-4 sm:p-6" aria-describedby={undefined}>
       <DialogTitle>{t("addInvestigations")}</DialogTitle>
       <ToggleGroup type="single" value={mode} onValueChange={v => { if (v) { setMode(v); setQ(""); } }} variant="outline" className="justify-start">
         <ToggleGroupItem value="imaging">{t("imaging")}</ToggleGroupItem>
