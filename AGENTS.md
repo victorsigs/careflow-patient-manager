@@ -9,5 +9,7 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Ward data lives in a persisted Zustand store (src/lib/store.ts, localStorage, skipHydration + rehydrate in useEffect); presets/DRG/specialties in src/lib/ward-data.ts — keeps SSR hydration-safe and makes a later move to cloud sync a single-module swap.
-- Consult and investigation pickers are filtered by task kind in PatientCard; preserve legacy DRG storage fields only for backup compatibility, with no DRG interface — avoids altering existing patient data during presentation changes.
+- Ward patients, favorites and local activity events live in the persisted Zustand store with skipHydration and effect-based rehydration; all patient/task mutations record events in the same state transaction — keeps SSR safe and records consistent changes without implying an authenticated audit trail.
+- Imaging taxonomy lives in src/lib/imaging.ts, non-imaging presets and specialties in ward-data.ts; keep existing task keys and saved labels compatible when catalogs change — preserves old patient data while pickers expose only current entries.
+- PatientCard uses a dedicated InvestigationPicker dialog and a consult-only picker; retain legacy DRG storage solely for backup compatibility with no DRG interface — separates workflows without altering historical data.
+- Export structured backups including patients, favorites and activity; validate imports and accept legacy patient arrays without clearing preferences or history — preserves device data during backup upgrades.

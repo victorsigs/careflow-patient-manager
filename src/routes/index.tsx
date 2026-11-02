@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, Plus, Search, Upload, Activity } from "lucide-react";
+import { Download, Plus, Search, Upload, Activity, History } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,8 @@ import { tr } from "@/lib/i18n";
 import { dischargeState, todayISO, type Patient } from "@/lib/patients";
 import { PatientCard } from "@/components/ward/PatientCard";
 import { PatientDialog } from "@/components/ward/PatientDialog";
+import { ActivityJournal } from "@/components/ward/ActivityJournal";
+import { parseBackup } from "@/lib/backup";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -38,6 +40,7 @@ function Index() {
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<"bed" | "discharge">("bed");
   const [dialog, setDialog] = useState<{ open: boolean; patient?: Patient | undefined }>({ open: false });
+  const [journalOpen, setJournalOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const today = hydrated ? todayISO() : "1970-01-01";
 
@@ -59,17 +62,18 @@ function Index() {
   const dischargeSoon = active.filter((p) => ["today", "tomorrow", "overdue"].includes(dischargeState(p.discharge, today))).length;
 
   const exportData = () => {
-    const blob = new Blob([JSON.stringify(patients, null, 2)], { type: "application/json" });
+    const { activity, favorites } = useWard.getState();
+    const blob = new Blob([JSON.stringify({ version: 2, patients, activity, favorites }, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `pacienti-${todayISO()}.json`;
     a.click();
+    URL.revokeObjectURL(a.href);
   };
   const importData = async (file: File) => {
     try {
-      const data = JSON.parse(await file.text());
-      if (!Array.isArray(data)) throw new Error();
-      replaceAll(data);
+      const data = parseBackup(JSON.parse(await file.text()));
+      replaceAll(data.patients, data);
       toast.success("OK");
     } catch { toast.error("Invalid file"); }
   };
@@ -88,6 +92,7 @@ function Index() {
               <ToggleGroupItem value="en">EN</ToggleGroupItem>
             </ToggleGroup>
             <Button variant="ghost" size="icon" onClick={exportData} title={t("export")}><Download className="h-4 w-4" /></Button>
+            <Button variant="outline" size="sm" onClick={() => setJournalOpen(true)} className="gap-1.5"><History className="h-4 w-4" />{t("journal")}</Button>
             <Button variant="ghost" size="icon" onClick={() => fileRef.current?.click()} title={t("import")}><Upload className="h-4 w-4" /></Button>
             <input ref={fileRef} type="file" accept="application/json" hidden onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])} />
             <Button onClick={() => setDialog({ open: true })} className="gap-1"><Plus className="h-4 w-4" />{t("addPatient")}</Button>
@@ -138,6 +143,7 @@ function Index() {
       </main>
 
       <PatientDialog open={dialog.open} patient={dialog.patient} onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))} />
+      <ActivityJournal open={journalOpen} onOpenChange={setJournalOpen} />
     </div>
   );
 }
