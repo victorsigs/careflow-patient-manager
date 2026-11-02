@@ -9,6 +9,7 @@ export interface Task {
   status: TaskStatus;
   date?: string | undefined;
   note?: string | undefined;
+  contrast?: boolean | undefined;
 }
 
 export interface Patient {
