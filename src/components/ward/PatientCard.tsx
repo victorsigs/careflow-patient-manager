@@ -29,7 +29,6 @@ export function PatientCard({ patient, today, onEdit }: { patient: Patient; toda
   const ds = dischargeState(patient.discharge, today);
   const [custom, setCustom] = useState("");
   const [addOpen, setAddOpen] = useState<"investigation" | "consult" | null>(null);
-  const [investigationOpen, setInvestigationOpen] = useState(false);
 
   const open = patient.tasks.filter((x) => x.status !== "done");
   const done = patient.tasks.filter((x) => x.status === "done");
@@ -114,7 +113,8 @@ export function PatientCard({ patient, today, onEdit }: { patient: Patient; toda
         </ul>
 
         <div className="mt-auto flex flex-wrap gap-2 pt-2">
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setInvestigationOpen(true)}><FlaskConical className="h-4 w-4 text-primary" />{t("addInvestigations")}<Plus className="h-3.5 w-3.5 text-muted-foreground" /></Button>
+          <InvestigationPicker patientId={patient.id} mode="lab" />
+          <InvestigationPicker patientId={patient.id} mode="imaging" />
           {(["consult"] as const).map((kind) => (
           <Popover key={kind} open={addOpen === kind} onOpenChange={(open) => setAddOpen(open ? kind : null)}>
             <PopoverTrigger asChild>
@@ -147,7 +147,6 @@ export function PatientCard({ patient, today, onEdit }: { patient: Patient; toda
           </form>
         </div>
       </div>
-      <InvestigationPicker patientId={patient.id} open={investigationOpen} onOpenChange={setInvestigationOpen} />
     </article>
   );
 }

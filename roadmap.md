@@ -5,3 +5,4 @@
 - [x] Replace radiology presets with the supplied regional catalog, favorites and RMN contrast.
 - [x] Add a persisted activity journal and preserve old patient tasks and backups.
 - [x] Test catalog rules and verify selection, favorites and journal end to end.
+- [x] Split laboratory and imaging actions, use consult-style selection without row plus buttons, and verify both flows.
