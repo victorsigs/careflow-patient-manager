@@ -79,8 +79,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Ward Board — patient manager" },
-      { name: "description", content: "Admitted patient board with tasks, investigations, consults and DRG codes." },
+      { title: "Med Pubs — patient manager" },
+      { name: "description", content: "Med Pubs — patients, investigations, consults and discharge planning." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

@@ -11,5 +11,6 @@
 
 - Ward patients, favorites and local activity events live in the persisted Zustand store with skipHydration and effect-based rehydration; all patient/task mutations record events in the same state transaction — keeps SSR safe and records consistent changes without implying an authenticated audit trail.
 - Imaging taxonomy lives in src/lib/imaging.ts, non-imaging presets and specialties in ward-data.ts; keep existing task keys and saved labels compatible when catalogs change — preserves old patient data while pickers expose only current entries.
+- Optional contrast eligibility is shared by the imaging picker and task factory; picker choices are keyed per investigation — prevents unrelated rows from sharing a contrast choice and keeps saved tasks consistent.
 - PatientCard uses separate laboratory and imaging InvestigationPicker popovers with direct CommandItem selection and a consult-only picker; non-imaging cardiac/endoscopy presets remain grouped in the laboratory picker, and legacy DRG storage stays backup-only — separates workflows without removing existing investigations or historical data.
 - Export structured backups including patients, favorites and activity; validate imports and accept legacy patient arrays without clearing preferences or history — preserves device data during backup upgrades.
