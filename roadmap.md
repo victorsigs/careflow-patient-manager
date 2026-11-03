@@ -1,6 +1,6 @@
 # Requested changes
-- [ ] Move contrast selection to eligible CT/RMN rows and verify individual choices.
-- [ ] Brand the app Med Pubs.
+- [x] Move contrast selection to eligible CT/RMN rows and verify individual choices.
+- [x] Brand the app Med Pubs.
 - [x] Remove DRG references and controls from the interface.
 - [x] Make discharge dates visibly editable in the patient list.
 - [x] Separate consult and investigation addition, and verify both flows.
