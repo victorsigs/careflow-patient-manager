@@ -66,6 +66,9 @@ export function filterImaging(favorites: string[], query = '', modality = 'all',
   return IMAGING.filter(i => (modality === 'all' || i.modality === modality) && (region === 'all' || i.region === region) && normalize(`${i.ro} ${i.modality} ${i.region}`).includes(q))
     .sort((a,b) => Number(favorites.includes(b.key)) - Number(favorites.includes(a.key)));
 }
+export function supportsOptionalContrast(i: ImagingInvestigation) {
+  return i.modality === 'RMN' || (i.modality === 'CT' && !i.ro.startsWith('CBCT') && i.ro !== 'Pelvimetrie CT' && !i.ro.includes('contrast intratecal'));
+}
 export function imagingTask(i: ImagingInvestigation, contrast: boolean) {
-  return { kind: 'investigation' as const, key: i.key, label: i.ro, status: 'pending' as const, ...(i.modality === 'RMN' ? { contrast } : {}) };
+  return { kind: 'investigation' as const, key: i.key, label: i.ro, status: 'pending' as const, ...(supportsOptionalContrast(i) ? { contrast } : {}) };
 }

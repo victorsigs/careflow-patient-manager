@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { IMAGING, MODALITIES, filterImaging, imagingTask } from "./imaging";
+import { IMAGING, MODALITIES, filterImaging, imagingTask, supportsOptionalContrast } from "./imaging";
 import { INVESTIGATIONS } from "./ward-data";
 
 describe("requested imaging catalog", () => {
@@ -27,12 +27,22 @@ describe("requested imaging catalog", () => {
     expect(filterImaging([chosen.key])[0]?.key).toBe(chosen.key);
     expect(filterImaging([])[0]?.key).not.toBe(chosen.key);
   });
-  it("offers contrast variants for RMN only", () => {
+  it("offers individual contrast variants for CT and RMN", () => {
     const mri = IMAGING.find(i=>i.ro === 'RMN cerebral');
     const ct = IMAGING.find(i=>i.ro === 'CT cerebral');
     if (!mri || !ct) throw new Error('missing investigations');
     expect(imagingTask(mri,true)).toMatchObject({contrast:true,label:'RMN cerebral'});
     expect(imagingTask(mri,false)).toMatchObject({contrast:false});
-    expect(imagingTask(ct,true)).not.toHaveProperty('contrast');
+    expect(imagingTask(ct,true)).toMatchObject({contrast:true,label:'CT cerebral'});
+    expect(imagingTask(ct,false)).toMatchObject({contrast:false});
+    expect(imagingTask(mri,false).contrast).toBe(false);
+  });
+  it("does not offer optional contrast for other modalities or fixed CT protocols", () => {
+    for (const label of ['CBCT bimaxilar', 'Pelvimetrie CT', 'CT coloană vertebrală cu contrast intratecal', 'Radiografie craniu', 'Angio-CT cerebral']) {
+      const item = IMAGING.find(i => i.ro === label);
+      if (!item) throw new Error(`missing investigation: ${label}`);
+      expect(supportsOptionalContrast(item)).toBe(false);
+      expect(imagingTask(item,true)).not.toHaveProperty('contrast');
+    }
   });
 });

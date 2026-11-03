@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Switch } from "@/components/ui/switch";
 import { useWard } from "@/lib/store";
-import { IMAGING, MODALITIES, filterImaging, imagingTask } from "@/lib/imaging";
+import { IMAGING, MODALITIES, filterImaging, imagingTask, supportsOptionalContrast } from "@/lib/imaging";
 import { INVESTIGATIONS, INV_CATEGORIES } from "@/lib/ward-data";
 import { tr } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -18,7 +18,7 @@ export function InvestigationPicker({ patientId, mode }: { patientId: string; mo
   const [q, setQ] = useState("");
   const [modality, setModality] = useState("all");
   const [region, setRegion] = useState("all");
-  const [contrast, setContrast] = useState(false);
+  const [contrastByKey, setContrastByKey] = useState<Record<string, boolean>>({});
   const regions = [...new Set(IMAGING.filter(i => modality === "all" || i.modality === modality).map(i => i.region))];
   const rows = mode === "imaging" ? filterImaging(favorites, q, modality, region)
     : INVESTIGATIONS.filter(i => i.cat !== "imaging" && `${i.ro} ${i.en}`.toLowerCase().includes(q.toLowerCase()))
@@ -38,21 +38,24 @@ export function InvestigationPicker({ patientId, mode }: { patientId: string; mo
           <Select value={modality} onValueChange={v => { setModality(v); setRegion("all"); }}><SelectTrigger className="min-w-0" aria-label={t("modality")}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{t("all")} · {t("modality")}</SelectItem>{MODALITIES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
           <Select value={region} onValueChange={setRegion}><SelectTrigger className="min-w-0" aria-label={t("region")}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{t("allRegions")}</SelectItem>{regions.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent></Select>
         </div>}
-        {mode === "imaging" && (modality === "RMN" || modality === "all") && <ToggleGroup type="single" value={contrast ? "with" : "without"} onValueChange={v => v && setContrast(v === "with")} variant="outline" size="sm" className="flex-wrap justify-start border-b p-2">
-          <ToggleGroupItem value="without" className="h-auto min-h-8 whitespace-normal text-left">RMN · {t("withoutContrast")}</ToggleGroupItem><ToggleGroupItem value="with" className="h-auto min-h-8 whitespace-normal text-left">RMN · {t("withContrast")}</ToggleGroupItem>
-        </ToggleGroup>}
         <CommandList className="min-h-0 max-h-80" aria-label={t(mode === "imaging" ? "imaging" : "laboratory")}>
           <CommandEmpty>{t("noResults")}</CommandEmpty>
           {groups.filter(group => group.items.length > 0).map(group => <CommandGroup key={group.title} heading={group.title}>
             {group.items.map(i => {
               const favorite = favorites.includes(i.key);
               const im = IMAGING.find(item => item.key === i.key);
+              const contrast = contrastByKey[i.key] ?? false;
+              const optionalContrast = im && supportsOptionalContrast(im);
               return <CommandItem key={i.key} value={i.key} className="cursor-pointer" onSelect={() => {
                 addTask(patientId, im ? imagingTask(im, contrast) : { kind: "investigation", key: i.key, label: i[lang], status: "pending" });
                 setOpen(false); setQ("");
               }}>
                 <Icon className="text-primary" />
-                <div className="min-w-0 flex-1"><p className="break-words font-medium">{i[lang]}</p>{im && <p className="break-words text-xs text-muted-foreground">{im.modality} · {im.region}{im.modality === "RMN" ? ` · ${t(contrast ? "withContrast" : "withoutContrast")}` : ""}</p>}</div>
+                <div className="min-w-0 flex-1"><p className="break-words font-medium">{i[lang]}</p>{im && <p className="break-words text-xs text-muted-foreground">{im.modality} · {im.region}{optionalContrast ? ` · ${t(contrast ? "withContrast" : "withoutContrast")}` : ""}</p>}</div>
+                {optionalContrast && <div className="flex shrink-0 flex-col items-center gap-1" onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") e.stopPropagation(); }}>
+                  <span className="text-xs text-muted-foreground">{t("contrast")}</span>
+                  <Switch checked={contrast} onCheckedChange={checked => setContrastByKey(current => ({ ...current, [i.key]: checked }))} aria-label={`${t("contrast")}: ${i[lang]}`} title={t(contrast ? "withContrast" : "withoutContrast")} />
+                </div>}
                 <Button variant="ghost" size="icon" className={cn("h-7 w-7 shrink-0", favorite && "text-warning")} title={t(favorite ? "favoriteRemove" : "favoriteAdd")} aria-label={`${t(favorite ? "favoriteRemove" : "favoriteAdd")}: ${i[lang]}`} aria-pressed={favorite} onClick={e => { e.stopPropagation(); toggleFavorite(i.key); }} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") e.stopPropagation(); }}><Star className={cn("h-4 w-4", favorite && "fill-current")} /></Button>
               </CommandItem>;
             })}

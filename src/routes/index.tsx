@@ -16,10 +16,10 @@ import { parseBackup } from "@/lib/backup";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Ward Board — admitted patients & tasks" },
-      { name: "description", content: "Track admitted patients, investigations, consults and editable discharge dates in one ward board." },
-      { property: "og:title", content: "Ward Board — admitted patients & tasks" },
-      { property: "og:description", content: "Patient to-do board for Romanian hospital wards: investigations, consults and discharge planning." },
+      { title: "Med Pubs — pacienți și sarcini" },
+      { name: "description", content: "Med Pubs — evidența pacienților internați, investigațiilor, consulturilor și datelor de externare." },
+      { property: "og:title", content: "Med Pubs — pacienți și sarcini" },
+      { property: "og:description", content: "Med Pubs — pacienți, investigații, consulturi și planificarea externării pentru secțiile din România." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -84,7 +84,7 @@ function Index() {
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground"><Activity className="h-4 w-4" /></div>
-            <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
+            <div className="min-w-0"><h1 className="text-xl font-semibold">Med Pubs</h1><p className="text-xs text-muted-foreground">{t("title")}</p></div>
           </div>
           <div className="ml-auto flex max-w-full flex-wrap items-center gap-2">
             <ToggleGroup type="single" size="sm" value={lang} onValueChange={(v) => v && setLang(v as "ro" | "en")} variant="outline">
