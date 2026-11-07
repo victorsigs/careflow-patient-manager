@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Download, Plus, Search, Upload, Activity, History } from "lucide-react";
+import { Download, Plus, Search, Upload, Activity, History, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,6 +93,7 @@ function Index() {
             </ToggleGroup>
             <Button variant="ghost" size="icon" onClick={exportData} title={t("export")}><Download className="h-4 w-4" /></Button>
             <Button variant="outline" size="sm" onClick={() => setJournalOpen(true)} className="gap-1.5"><History className="h-4 w-4" />{t("journal")}</Button>
+            <Button asChild variant="outline" size="sm"><Link to="/analize"><FileText className="h-4 w-4" />{lang === "ro" ? "Formatare analize" : "Format lab results"}</Link></Button>
             <Button variant="ghost" size="icon" onClick={() => fileRef.current?.click()} title={t("import")}><Upload className="h-4 w-4" /></Button>
             <input ref={fileRef} type="file" accept="application/json" hidden onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])} />
             <Button onClick={() => setDialog({ open: true })} className="gap-1"><Plus className="h-4 w-4" />{t("addPatient")}</Button>
