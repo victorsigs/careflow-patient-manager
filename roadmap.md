@@ -8,3 +8,5 @@
 - [x] Add a persisted activity journal and preserve old patient tasks and backups.
 - [x] Test catalog rules and verify selection, favorites and journal end to end.
 - [x] Split laboratory and imaging actions, use consult-style selection without row plus buttons, and verify both flows.
+- [ ] Add algorithm-only HTML/PDF laboratory extraction and chronological template formatting.
+- [ ] Verify supplied bulletins, patient separation, text export and parsing rules.
