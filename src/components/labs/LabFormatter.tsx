@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatLabs, displayDate, type LabReport } from '@/lib/labs/format';
 import { readLabFile } from '@/lib/labs/parse';
-import { TEMPLATE, templateRank } from '@/lib/labs/catalog';
+import { TEMPLATE } from '@/lib/labs/catalog';
 import { useWard } from '@/lib/store';
 
 export function LabFormatter() {
@@ -35,13 +35,14 @@ export function LabFormatter() {
       try {added.push(await readLabFile(file));} catch(error) {failed.push(`${file.name}: ${error instanceof Error?error.message:'Fișierul nu a putut fi citit.'}`);}
     }
     setReports(old=>[...old,...added]);
-    if(added[0])setSelected(old=>old||added[0].patientKey);
+    const firstAdded=added[0];
+    if(firstAdded)setSelected(old=>old||firstAdded.patientKey);
     setErrors(failed); setBusy(false);
     if(input.current)input.current.value='';
   }
   function save() {
     const url=URL.createObjectURL(new Blob([output],{type:'text/plain;charset=utf-8'}));
-    const a=document.createElement('a');a.href=url;a.download='analize-sistematizate.txt';a.click();URL.revokeObjectURL(url);
+    const a=document.createElement('a');a.href=url;a.download='analize-sistematizate.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
   return <div className="flex flex-col gap-5">
     <div className="flex flex-wrap items-end justify-between gap-3 border-b pb-4">
@@ -68,7 +69,7 @@ export function LabFormatter() {
       </section>
       <section className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">{en?'Formatted text':'Text sistematizat'}</h2><div className="flex gap-2"><Button variant="outline" size="sm" disabled={!output||busy} onClick={async()=>{try{await navigator.clipboard.writeText(output);toast.success(en?'Copied':'Text copiat');}catch{toast.error(en?'Copy unavailable':'Copiere indisponibilă');}}}><Copy className="h-4 w-4" />{en?'Copy':'Copiază'}</Button><Button variant="outline" size="sm" disabled={!output||busy} onClick={save}><Download className="h-4 w-4" />TXT</Button></div></div>
-        <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs"><label className="flex items-center gap-2"><Checkbox checked={other} onCheckedChange={v=>{setOther(v===true);setEdited(null);}} />{en?'Include analyses outside template':'Include analizele din afara template-ului'}</label><label className="flex items-center gap-2"><Checkbox checked={refs} onCheckedChange={v=>{setRefs(v===true);setEdited(null);}} />{en?'Template reference ranges':'Valori normale din template'}</label></div>
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs"><label className="flex items-center gap-2"><Checkbox checked={other} onCheckedChange={v=>{setOther(v===true);setEdited(null);}} />{en?'Include analyses outside template':'Include analizele din afara template-ului'}</label><label className="flex items-center gap-2"><Checkbox checked={refs} onCheckedChange={v=>{setRefs(v===true);setEdited(null);}} />{en?'Reference ranges from bulletins':'Valori normale din buletine'}</label></div>
         {missingDate && <p role="alert" className="text-sm text-destructive">{en?'Complete the missing collection dates.':'Completează datele de recoltare lipsă.'}</p>}
         <Textarea aria-label="Text sistematizat" value={output} onChange={e=>setEdited(e.target.value)} placeholder={en?'Formatted results':'Rezultatele formatate'} className="min-h-96 resize-y bg-card font-mono text-sm leading-6" />
         {edited!==null && <Button variant="ghost" size="sm" className="self-start" onClick={()=>setEdited(null)}><Check className="h-4 w-4" />{en?'Restore generated text':'Restabilește textul generat'}</Button>}

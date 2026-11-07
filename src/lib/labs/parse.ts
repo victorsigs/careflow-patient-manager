@@ -36,17 +36,18 @@ export function parseHtml(html: string, filename: string, id: string): LabReport
     const section:LabResult['section']=/urini|urina/.test(heading)?'urine':/frotiu/.test(heading)?'smear':'blood';
     for(const row of table.querySelectorAll(':scope > tbody > tr')) {
       const cells=[...row.children].filter(c=>c.tagName==='TD'||c.tagName==='TH');
-      if(cells.length<2) continue;
-      const first=cells[0].cloneNode(true) as Element;
+      const [nameCell,valueCell,referenceCell]=cells;
+      if(!nameCell||!valueCell) continue;
+      const first=nameCell.cloneNode(true) as Element;
       first.querySelectorAll('i,img').forEach(el=>el.remove());
       const rawName=clean(first.textContent??'');
-      const value=clean(cells[1].textContent??'');
+      const value=clean(valueCell.textContent??'');
       if(!rawName||!value) continue;
-      if(cells.length===2 && cells[1].getAttribute('colspan')==='2') {
+      if(cells.length===2 && valueCell.getAttribute('colspan')==='2') {
         results.push(resultFromCells(rawName,value,'','',section,meta.collectedAt,filename,true)); continue;
       }
-      if(cells.length!==3||cells.some(c=>Number(c.getAttribute('colspan')??1)>1)) continue;
-      const {unit,reference}=unitAndReference(cells[2]);
+      if(!referenceCell||cells.length!==3||cells.some(c=>Number(c.getAttribute('colspan')??1)>1)) continue;
+      const {unit,reference}=unitAndReference(referenceCell);
       results.push(resultFromCells(rawName,value,unit,reference,section,meta.collectedAt,filename));
     }
   }
@@ -69,7 +70,6 @@ export function parsePdfItems(items: PositionedText[], filename: string, id: str
   const meta=metadata(text); const results:LabResult[]=[]; const warnings:string[]=[];
   let section:LabResult['section']='blood';
   let resultX:number|undefined, referenceX:number|undefined, inTable=false;
-  const pending:{name:string;value:string;ref:string}[]=[];
   for(const line of lines) {
     const s=normalize(line.items.map(i=>i.text).join(' '));
     if (/^(?:hematologie|chimie clinica|coagulare|imunologie|urini|frotiu)/.test(s)) { section=/urini|urina/.test(s)?'urine':/frotiu/.test(s)?'smear':'blood'; }
@@ -78,14 +78,14 @@ export function parsePdfItems(items: PositionedText[], filename: string, id: str
     if(resultHeading) { resultX=resultHeading.x; if(referenceHeading) referenceX=referenceHeading.x; inTable=true; continue; }
     if(/validat de:|note:|data tiparirii|rezultatele din prezentul/.test(s)) {inTable=false; continue;}
     if(!inTable || resultX===undefined || referenceX===undefined || /denumire analiza|de referinta|starea probei/.test(s)) continue;
-    const name=clean(line.items.filter(i=>i.x<resultX-12).map(i=>i.text).join(' '));
-    const value=clean(line.items.filter(i=>i.x>=resultX-12 && i.x<referenceX-12).map(i=>i.text).join(' '));
-    const ref=clean(line.items.filter(i=>i.x>=referenceX-12).map(i=>i.text).join(' '));
+    const rx=resultX, fx=referenceX;
+    const name=clean(line.items.filter(i=>i.x<rx-12).map(i=>i.text).join(' '));
+    const value=clean(line.items.filter(i=>i.x>=rx-12 && i.x<fx-12).map(i=>i.text).join(' '));
+    const ref=clean(line.items.filter(i=>i.x>=fx-12).map(i=>i.text).join(' '));
     if(!name||/^\(tip proba|\(metoda|examen complet de urina/.test(normalize(name))) continue;
-    if(!value) { if(pending.length && !ref && !/^\(|interpretarea|normal:|risc|optim:/i.test(name)) pending[pending.length-1].name+=' '+name; continue; }
+    if(!value) continue;
     // Only result-shaped values; explanatory paragraphs never become measurements.
     if(!/^(?:[<>≤≥]?\s*-?\d|neg|poz|norm|rare|absent|prezent|camp|ser hemolizat)/i.test(value)) {warnings.push('Un rând PDF nu a fost recunoscut; verifică documentul original.');continue;}
-    pending.push({name,value,ref});
     const parsed=splitReference(ref);
     results.push(resultFromCells(name.replace(/\s*\(Tip proba:.*$/i,''),value,parsed.unit,parsed.reference,section,meta.collectedAt,filename,/ser hemolizat/i.test(value)));
   }

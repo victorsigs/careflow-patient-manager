@@ -1,4 +1,4 @@
-import { clean, normalize, nameFor, templateRank } from './catalog';
+import { clean, normalize, nameFor, templateRank, TEMPLATE } from './catalog';
 export type LabResult = { name: string; rawName: string; value: string; unit: string; reference: string; section: 'blood' | 'urine' | 'smear'; date: string; source: string; note?: boolean };
 export type LabReport = { id: string; filename: string; patientKey: string; patientName: string; collectedAt: string; results: LabResult[]; warnings: string[] };
 const months: Record<string, string> = { jan:'01', ian:'01', feb:'02', mar:'03', apr:'04', may:'05', mai:'05', jun:'06', iun:'06', jul:'07', iul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
@@ -8,15 +8,15 @@ export function parseDate(input: string): string {
   const numeric = s.match(/(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
   const iso = s.match(/(\d{4})-(\d{2})-(\d{2})(?:[t\s]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
   let y='', m='', d='', h='00', min='00', sec='00';
-  if (textual) { d=textual[1]; m=months[textual[2].slice(0,3)] ?? ''; y=textual[3]; h=textual[4]??h; min=textual[5]??min; sec=textual[6]??sec; }
-  else if (numeric) { d=numeric[1]; m=numeric[2]; y=numeric[3]; h=numeric[4]??h; min=numeric[5]??min; sec=numeric[6]??sec; }
-  else if (iso) { y=iso[1]; m=iso[2]; d=iso[3]; h=iso[4]??h; min=iso[5]??min; sec=iso[6]??sec; }
+  if (textual) { d=textual[1]??''; m=months[(textual[2]??'').slice(0,3)] ?? ''; y=textual[3]??''; h=textual[4]??h; min=textual[5]??min; sec=textual[6]??sec; }
+  else if (numeric) { d=numeric[1]??''; m=numeric[2]??''; y=numeric[3]??''; h=numeric[4]??h; min=numeric[5]??min; sec=numeric[6]??sec; }
+  else if (iso) { y=iso[1]??''; m=iso[2]??''; d=iso[3]??''; h=iso[4]??h; min=iso[5]??min; sec=iso[6]??sec; }
   if (!m || !y) return '';
   const value=`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}T${h.padStart(2,'0')}:${min}:${sec}`;
   const date = new Date(`${value}Z`);
   return Number.isNaN(date.getTime()) || date.toISOString().slice(0,19)!==value ? '' : value;
 }
-export function displayDate(s: string) { if (!s) return 'Dată lipsă'; const [date,time] = s.split('T'); return `${date.split('-').reverse().join('.')}${time ? ' '+time.slice(0,5) : ''}`; }
+export function displayDate(s: string) { if (!s) return 'Dată lipsă'; const [date='',time] = s.split('T'); return `${date.split('-').reverse().join('.')}${time ? ' '+time.slice(0,5) : ''}`; }
 export function resultFromCells(rawName: string, rawValue: string, rawUnit: string, reference: string, section: LabResult['section'], date: string, source: string, note = false): LabResult {
   const name = nameFor(rawName, section);
   let value = clean(rawValue), unit=clean(rawUnit);
@@ -27,7 +27,7 @@ export function resultFromCells(rawName: string, rawValue: string, rawUnit: stri
     unit='/µL';
   }
   const trailing = value.match(/^([<>≤≥]?\s*\d+(?:[.,]\d+)?)\s+(.+)$/);
-  if (trailing && /^(?:mg|g|mmol|µmol|ng|pg|[µμu]g|[µμu]i?u|u|ui|iu|leu|ery|%|\/)/i.test(trailing[2])) { value=trailing[1]; unit=trailing[2]; }
+  if (trailing?.[1] && trailing[2] && /^(?:mg|g|mmol|µmol|ng|pg|[µμu]g|[µμu]i?u|u|ui|iu|leu|ery|%|\/)/i.test(trailing[2])) { value=trailing[1]; unit=trailing[2]; }
   if (section==='urine') value = normalize(value)==='neg' ? 'negativ' : normalize(value)==='norm' ? 'normal' : value;
   return {name, rawName:clean(rawName), value, unit, reference:clean(reference), section,date,source, note};
 }
@@ -43,14 +43,14 @@ export function formatLabs(reports: LabReport[], includeOther = true, includeRef
   const blood=results.filter(r=>r.section==='blood' && !r.note);
   const groups=new Map<string,LabResult[]>();
   for(const r of blood) {
-    if(!includeOther && templateRank(r.name)>=50) continue;
+    if(!includeOther && templateRank(r.name)>=TEMPLATE.length) continue;
     // Different units or reference ranges remain distinct, never collapsed into misleading series.
-    const key=JSON.stringify([r.name,normalize(r.unit),includeReferences && referenceNames.has(r.name)?r.reference:'']);
+    const key=JSON.stringify([r.name,normalize(r.unit),r.reference]);
     groups.set(key,[...(groups.get(key)??[]),r]);
   }
-  const entries=[...groups.values()].sort((a,b)=>templateRank(a[0].name)-templateRank(b[0].name));
+  const entries=[...groups.values()].sort((a,b)=>templateRank(a[0]?.name??'')-templateRank(b[0]?.name??''));
   const rendered=entries.map(g=>{
-    const r=g[0]; const joined=g.map(x=>/[<>≤≥]|\d-\d/.test(x.value)?`(${x.value})`:x.value).join('-');
+    const r=g[0]; if(!r)return ''; const joined=g.map(x=>/[<>≤≥]|\d-\d/.test(x.value)?`(${x.value})`:x.value).join('-');
     const ref=includeReferences && referenceNames.has(r.name) && r.reference?` (VN: ${r.reference}${r.unit?' '+r.unit:''})`:'';
     return `${r.name} ${joined}${r.unit?' '+r.unit:''}${ref}`;
   });
