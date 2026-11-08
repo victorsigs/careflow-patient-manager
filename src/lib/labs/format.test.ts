@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatLabs, parseDate, resultFromCells, type LabReport } from './format';
+import { formatLabs, parseDate, referenceKey, resultFromCells, type LabReport } from './format';
 import { metadata, parseHtml, parsePdfItems, splitReference } from './parse';
 
 const report = (date: string, value: string, patientKey = 'patient:example'): LabReport => ({
@@ -13,6 +13,32 @@ const html = `<p>NUME: Exemplu Test<br>CNP: 1234567890123<br>Data si ora recolta
 </tbody></table>`;
 
 describe('laboratory formatting rules', () => {
+  it('includes supplied normal ranges for every analysis, including urine and smear', () => {
+    const a = report('2026-11-07T08:00:00', '1');
+    a.results = [
+      resultFromCells('Creatinina','1','mg/dL','0.5 - 1.2','blood','',''),
+      resultFromCells('Test suplimentar','5','U/L','2 - 7','blood','',''),
+      resultFromCells('Proteine','negativ','','negativ','urine','',''),
+      resultFromCells('Test frotiu','1','%','0 - 2','smear','',''),
+    ];
+    const output = formatLabs([a]);
+    expect(output).toContain('Creatinina 1 mg/dL (VN: 0.5 - 1.2 mg/dL)');
+    expect(output).toContain('Test suplimentar 5 U/L (VN: 2 - 7 U/L)');
+    expect(output).toContain('Proteine negativ (VN: negativ)');
+    expect(output).toContain('Test frotiu 1 % (VN: 0 - 2 %)');
+    expect(formatLabs([a],true,false)).not.toContain('VN:');
+  });
+  it('excludes selected ranges without removing results or other ranges', () => {
+    const a = report('2026-11-07T08:00:00', '1');
+    a.results[0] = resultFromCells('Creatinina','1','mg/dL','0.5 - 1.2','blood','','');
+    a.results.push(resultFromCells('Uree','30','mg/dL','15 - 40','blood','',''));
+    const b = report('2026-11-08T08:00:00', '2');
+    b.results[0] = resultFromCells('Creatinina','2','mg/dL','0.5 - 1.2','blood','','');
+    const output = formatLabs([a,b],true,true,new Set([referenceKey(a.id,0)]));
+    expect(output).toContain('Creatinina 1 mg/dL,');
+    expect(output).toContain('Creatinina 2 mg/dL (VN: 0.5 - 1.2 mg/dL)');
+    expect(output).toContain('Uree 30 mg/dL (VN: 15 - 40 mg/dL)');
+  });
   it('orders values by collection time rather than upload order', () => {
     expect(formatLabs([report('2026-11-08T10:00:00', '3.0'), report('2026-11-07T09:00:00', '1.0'), report('2026-11-08T08:00:00', '2.0')])).toContain('Creatinina 1.0-2.0-3.0 mg/dL');
   });
