@@ -1,4 +1,6 @@
 # Requested changes
+- [ ] Add Arial 10 rich-text editing with size, bold, italic and underline; preserve styles when copying/exporting.
+- [ ] Include reference ranges for all analyses and allow individual exclusions in extracted results; verify rules and UI.
 - [x] Move contrast selection to eligible CT/RMN rows and verify individual choices.
 - [x] Brand the app Med Pubs.
 - [x] Remove DRG references and controls from the interface.
