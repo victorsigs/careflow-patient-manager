@@ -88,4 +88,7 @@ describe('laboratory formatting rules', () => {
   it('identifies patient and collection metadata', () => {
     expect(metadata('NUME: Exemplu Test\nCNP: 1234567890123\nData recoltarii: 08.11.2026 08:30').patientName).toBe('Exemplu Test');
   });
+  it('does not include intervening metadata fields in the patient name', () => {
+    expect(metadata('NUME: Exemplu Test MCP: 123 CNP: 1234567890123').patientName).toBe('Exemplu Test');
+  });
 });

@@ -5,7 +5,7 @@ export function metadata(text: string) {
   const collection=n.match(/data\s*(?:si|și)?\s*ora\s*recoltarii\s*(?:setului de analize)?\s*:\s*([^\n]+)/)?.[1] ?? n.match(/data recoltarii\s*:\s*([^\n]+)/)?.[1] ?? '';
   const collectedAt=parseDate(collection);
   const id=n.match(/cod pacient\s*:\s*(\d+)/)?.[1] ?? n.match(/cnp\s*:\s*(\d{13})/)?.[1];
-  const patientName=clean(text.match(/NUME:\s*([^\n]+?)(?=\s*CNP:|\n|$)/i)?.[1] ?? 'Pacient neidentificat');
+  const patientName=clean(text.match(/NUME:\s*([^\n]+?)(?=\s*(?:CNP|MCP|Cod pacient|Telefon|Varsta|Vârsta|Sex|Data nasterii|Data nașterii)\s*:|\n|$)/i)?.[1] ?? 'Pacient neidentificat');
   return {collectedAt,patientKey:id?`patient:${id}`:normalize(patientName)==='pacient neidentificat'?'':'name:'+normalize(patientName),patientName};
 }
 function elementText(el: Element) {
