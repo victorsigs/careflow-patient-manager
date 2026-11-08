@@ -35,11 +35,12 @@ export function deduplicate(results: LabResult[]) {
   const seen=new Set<string>();
   return results.filter(r=>{ const key=JSON.stringify([r.section,r.date,normalize(r.name),r.value,normalize(r.unit),r.reference,!!r.note]); if(seen.has(key)) return false; seen.add(key); return true; });
 }
-const referenceNames = new Set(['Calciu seric total','Fosfor seric','Acid folic','Vitamina B12','FT4','TSH','ANA SCREEN','Anti dsDNA IgG','ASLO cantitativ','Imunoglobulina A','Imunoglobulina M','Imunoglobulina G','Complement C3','Complement C4','Anticorpi totali anti-Treponema pallidum','AFP','CA 19-9','Antigen Carcinoembrionar','PSA','Parathormon']);
-export function formatLabs(reports: LabReport[], includeOther = true, includeReferences = true): string {
+export function referenceKey(reportId: string, resultIndex: number) { return JSON.stringify([reportId, resultIndex]); }
+export function formatLabs(reports: LabReport[], includeOther = true, includeReferences = true, excludedReferences: ReadonlySet<string> = new Set()): string {
   if (new Set(reports.map(r=>r.patientKey)).size>1) throw new Error('Buletinele unor pacienți diferiți nu pot fi combinate.');
   if (reports.some(r=>!r.collectedAt)) throw new Error('Completează data recoltării pentru fiecare buletin.');
-  const results=deduplicate(reports.flatMap(report=>report.results.map(r=>({...r,date:report.collectedAt})))).sort((a,b)=>a.date.localeCompare(b.date));
+  const results=deduplicate(reports.flatMap(report=>report.results.map((r,i)=>({...r,date:report.collectedAt,reference:excludedReferences.has(referenceKey(report.id,i))?'':r.reference})))).sort((a,b)=>a.date.localeCompare(b.date));
+  const referenceText=(r:LabResult)=>includeReferences && r.reference?` (VN: ${r.reference}${r.unit?' '+r.unit:''})`:'';
   const blood=results.filter(r=>r.section==='blood' && !r.note);
   const groups=new Map<string,LabResult[]>();
   for(const r of blood) {
@@ -51,7 +52,7 @@ export function formatLabs(reports: LabReport[], includeOther = true, includeRef
   const entries=[...groups.values()].sort((a,b)=>templateRank(a[0]?.name??'')-templateRank(b[0]?.name??''));
   const rendered=entries.map(g=>{
     const r=g[0]; if(!r)return ''; const joined=g.map(x=>/[<>≤≥]|\d-\d/.test(x.value)?`(${x.value})`:x.value).join('-');
-    const ref=includeReferences && referenceNames.has(r.name) && r.reference?` (VN: ${r.reference}${r.unit?' '+r.unit:''})`:'';
+    const ref=referenceText(r);
     return `${r.name} ${joined}${r.unit?' '+r.unit:''}${ref}`;
   });
   const lines=rendered.length ? [`Hemograma: ${rendered.join(', ')}.`] : [];
@@ -59,7 +60,7 @@ export function formatLabs(reports: LabReport[], includeOther = true, includeRef
     const dates=[...new Set(results.filter(r=>r.section===section).map(r=>r.date))];
     for(const date of dates) {
       const rows=results.filter(r=>r.section===section && r.date===date && !r.note);
-      if(rows.length) lines.push(`${section==='urine'?'Examen Sumar de Urina':'Frotiu Sangvin'} (${displayDate(date)}): ${rows.map(r=>`${/^sediment/i.test(r.rawName)?'Sediment – ':''}${r.name} ${r.value}${r.unit?' '+r.unit:''}`).join(', ')}.`);
+      if(rows.length) lines.push(`${section==='urine'?'Examen Sumar de Urina':'Frotiu Sangvin'} (${displayDate(date)}): ${rows.map(r=>`${/^sediment/i.test(r.rawName)?'Sediment – ':''}${r.name} ${r.value}${r.unit?' '+r.unit:''}${referenceText(r)}`).join(', ')}.`);
     }
   }
   const notes=results.filter(r=>r.note);

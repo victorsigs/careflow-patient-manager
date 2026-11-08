@@ -16,3 +16,4 @@
 - Export structured backups including patients, favorites and activity; validate imports and accept legacy patient arrays without clearing preferences or history — preserves device data during backup upgrades.
 - Laboratory files are parsed in the browser with inert DOMParser and dynamically loaded PDF.js; keep results session-only, separate patient identities, and never use AI or send documents to a server — protects clinical data and ensures deterministic extraction.
 - Laboratory series sort by collection timestamp and preserve distinct units/reference ranges; only explicitly stated count multipliers are converted — avoids misleading clinical series.
+- Laboratory text uses a session-only Tiptap editor with HTML/plain-text clipboard and exports; reference exclusions are keyed by report and result index before formatting — preserves editable styles and never deletes clinical measurements when hiding ranges.
