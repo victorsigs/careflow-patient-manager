@@ -5,9 +5,10 @@ import { TextStyle, FontSize } from '@tiptap/extension-text-style';
 import { Bold, Italic, Underline } from 'lucide-react';
 import { Toggle } from '@/components/ui/toggle';
 import { Input } from '@/components/ui/input';
+import type { LabSegment } from '@/lib/labs/format';
 
 export type EditedLabText = { text: string; html: string };
-export function LabTextEditor({ text, resetKey, en, onChange }: { text: string; resetKey: number; en: boolean; onChange: (value: EditedLabText) => void }) {
+export function LabTextEditor({ doc, resetKey, en, onChange }: { doc: LabSegment[][]; resetKey: number; en: boolean; onChange: (value: EditedLabText) => void }) {
   const [size, setSize] = useState('10');
   const [, refresh] = useState(0);
   const editor = useEditor({
@@ -20,9 +21,9 @@ export function LabTextEditor({ text, resetKey, en, onChange }: { text: string; 
   });
   useEffect(() => {
     if (!editor) return;
-    editor.commands.setContent({ type: 'doc', content: text.split('\n\n').map(paragraph => ({ type: 'paragraph', ...(paragraph ? { content: [{ type: 'text', text: paragraph }] } : {}) })) }, { emitUpdate: false });
+    editor.commands.setContent({ type: 'doc', content: (doc.length ? doc : [[]]).map(segs => ({ type: 'paragraph', ...(segs.length ? { content: segs.filter(x => x.text).map(x => ({ type: 'text', text: x.text, ...(x.bold || x.underline ? { marks: [...(x.bold ? [{ type: 'bold' }] : []), ...(x.underline ? [{ type: 'underline' }] : [])] } : {}) })) } : {}) })) }, { emitUpdate: false });
     setSize('10');
-  }, [editor, text, resetKey]);
+  }, [editor, doc, resetKey]);
   return <div className="overflow-hidden rounded-md border bg-card">
     <div className="flex flex-wrap items-center gap-1 border-b bg-surface px-2 py-1.5">
       <span className="px-2 text-sm">Arial</span>

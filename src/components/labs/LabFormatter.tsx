@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LabTextEditor, type EditedLabText } from './LabTextEditor';
 import { Checkbox } from '@/components/ui/checkbox';
-import { formatLabs, displayDate, referenceKey, type LabReport } from '@/lib/labs/format';
+import { formatLabsDocument, defaultExcludedReferences, displayDate, referenceKey, type LabReport, type LabSegment } from '@/lib/labs/format';
 import { readLabFile } from '@/lib/labs/parse';
 import { templateElements, orderedReports, moveItem, transferReport } from '@/lib/labs/arrange';
 import { LabSortArea, LabSortable } from './LabSortable';
@@ -18,7 +18,8 @@ export function LabFormatter() {
   const [selected,setSelected]=useState('');
   const [busy,setBusy]=useState(false);
   const [errors,setErrors]=useState<string[]>([]);
-  const [other,setOther]=useState(true);
+  const [other,setOther]=useState(false);
+  const [pathUnderline,setPathUnderline]=useState(false);
   const [refs,setRefs]=useState(true);
   const [edited,setEdited]=useState<EditedLabText|null>(null);
   const [resetKey,setResetKey]=useState(0);
@@ -38,9 +39,12 @@ export function LabFormatter() {
     return (ai<0?elementOrder.length+elements.indexOf(a):ai)-(bi<0?elementOrder.length+elements.indexOf(b):bi);
   });
   const missingDate=current.some(r=>!r.collectedAt);
-  const generated=useMemo(()=>{ const chosen=reports.filter(r=>r.patientKey===selected); return chosen.length && chosen.every(r=>r.collectedAt)?formatLabs(chosen,other,refs,excluded,{reportOrder:reportOrders[selected]??[],elementOrder}):''; },[reports,selected,other,refs,excluded,reportOrders,elementOrder]);
+  const doc=useMemo<LabSegment[][]>(()=>{ const chosen=reports.filter(r=>r.patientKey===selected); return chosen.length && chosen.every(r=>r.collectedAt)?formatLabsDocument(chosen,other,refs,excluded,{reportOrder:reportOrders[selected]??[],elementOrder},pathUnderline):[]; },[reports,selected,other,refs,excluded,reportOrders,elementOrder,pathUnderline]);
+  const generated=doc.map(p=>p.map(s=>s.text).join('')).join('\n\n');
+  const esc=(t:string)=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const generatedHtml=doc.map(p=>`<p>${p.map(s=>{let h=esc(s.text);if(s.underline)h=`<u>${h}</u>`;if(s.bold)h=`<strong>${h}</strong>`;return h;}).join('')}</p>`).join('');
   const output=edited?.text??generated;
-  const formattedHtml=()=>`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Analize sistematizate</title></head><body><div style="font-family:Arial,sans-serif;font-size:10pt;line-height:1.5">${edited?.html??generated.split('\n\n').map(p=>`<p>${p.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>`).join('')}</div></body></html>`;
+  const formattedHtml=()=>`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Analize sistematizate</title></head><body><div style="font-family:Arial,sans-serif;font-size:10pt;line-height:1.5">${edited?.html??generatedHtml}</div></body></html>`;
   const count=current.reduce((n,r)=>n+r.results.length,0);
   async function upload(files: File[]) {
     if(busy)return;
@@ -50,6 +54,7 @@ export function LabFormatter() {
       try {added.push(await readLabFile(file));} catch(error) {failed.push(`${file.name}: ${error instanceof Error?error.message:'Fișierul nu a putut fi citit.'}`);}
     }
     setReports(old=>[...old,...added]);
+    setExcluded(old=>new Set([...old,...added.flatMap(defaultExcludedReferences)]));
     const firstAdded=added[0];
     if(firstAdded)setSelected(old=>old||firstAdded.patientKey);
     setErrors(failed); setBusy(false);
@@ -103,9 +108,9 @@ export function LabFormatter() {
       </section>
       <section className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">{en?'Formatted text':'Text sistematizat'}</h2><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={!output||busy} onClick={async()=>{try{if(typeof ClipboardItem!=='undefined' && navigator.clipboard.write){await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([formattedHtml()],{type:'text/html'}),'text/plain':new Blob([output],{type:'text/plain'})})]);}else{await navigator.clipboard.writeText(output);}toast.success(en?'Copied':'Text copiat');}catch{toast.error(en?'Copy unavailable':'Copiere indisponibilă');}}}><Copy className="h-4 w-4" />{en?'Copy':'Copiază'}</Button><Button variant="outline" size="sm" disabled={!output||busy} onClick={()=>save()}><Download className="h-4 w-4" />TXT</Button><Button variant="outline" size="sm" disabled={!output||busy} onClick={()=>save(true)}><Download className="h-4 w-4" />HTML</Button></div></div>
-        <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs"><label className="flex items-center gap-2"><Checkbox checked={other} onCheckedChange={v=>{setOther(v===true);resetEdited();}} />{en?'Include analyses outside template':'Include analizele din afara template-ului'}</label><label className="flex items-center gap-2"><Checkbox checked={refs} onCheckedChange={v=>{setRefs(v===true);resetEdited();}} />{en?'Reference ranges from bulletins':'Valori normale din buletine'}</label></div>
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs"><label className="flex items-center gap-2"><Checkbox checked={other} onCheckedChange={v=>{setOther(v===true);resetEdited();}} />{en?'Include analyses outside template':'Include analizele din afara template-ului'}</label><label className="flex items-center gap-2"><Checkbox checked={refs} onCheckedChange={v=>{setRefs(v===true);resetEdited();}} />{en?'Reference ranges from bulletins':'Valori normale din buletine'}</label><label className="flex items-center gap-2"><Checkbox checked={pathUnderline} onCheckedChange={v=>{setPathUnderline(v===true);resetEdited();}} />{en?'Underline abnormal values':'Subliniază valorile patologice'}</label></div>
         {missingDate && <p role="alert" className="text-sm text-destructive">{en?'Complete the missing collection dates.':'Completează datele de recoltare lipsă.'}</p>}
-        <LabTextEditor text={generated} resetKey={resetKey} en={en} onChange={setEdited} />
+        <LabTextEditor doc={doc} resetKey={resetKey} en={en} onChange={setEdited} />
         {edited!==null && <Button variant="ghost" size="sm" className="self-start" onClick={resetEdited}><Check className="h-4 w-4" />{en?'Restore generated text':'Restabilește textul generat'}</Button>}
         <details className="border-t pt-3 text-xs"><summary className="cursor-pointer font-medium text-muted-foreground">{en?'Template order':'Ordinea template-ului'}</summary><div className="mt-3"><LabSortArea capsules ids={arrangedElements.map(e=>e.id)} onMove={(from,to)=>{setElementOrder(moveItem(arrangedElements.map(e=>e.id),from,to));resetEdited();}}><div className="flex flex-wrap gap-2">{arrangedElements.map(e=><LabSortable key={e.id} id={e.id} label={e.label} capsule />)}</div></LabSortArea>{elementOrder.length>0 && <Button variant="ghost" size="sm" className="mt-2" onClick={()=>{setElementOrder([]);resetEdited();}}><RotateCcw />{en?'Default template order':'Ordinea inițială a template-ului'}</Button>}</div></details>
       </section>

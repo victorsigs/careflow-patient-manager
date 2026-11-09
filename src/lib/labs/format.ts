@@ -38,7 +38,25 @@ export function deduplicate<T extends LabResult>(results: T[]): T[] {
   return results.filter(r=>{ const key=JSON.stringify([r.section,r.date,normalize(r.name),r.value,normalize(r.unit),r.reference,r.referenceUnit??r.unit,!!r.note]); if(seen.has(key)) return false; seen.add(key); return true; });
 }
 export function referenceKey(reportId: string, resultIndex: number) { return JSON.stringify([reportId, resultIndex]); }
-export function formatLabs(reports: LabReport[], includeOther = true, includeReferences = true, excludedReferences: ReadonlySet<string> = new Set(), arrangement: { reportOrder?: readonly string[]; elementOrder?: readonly string[] } = {}): string {
+export type LabSegment = { text: string; bold?: boolean; underline?: boolean };
+const num=(s:string)=>{const m=s.replace(',','.').match(/-?\d+(?:\.\d+)?/);return m?Number(m[0]):NaN;};
+export function isPathological(value: string, reference: string): boolean {
+  const ref=clean(reference).replace(/,/g,'.'); const v=clean(value);
+  if(!ref || !v) return false;
+  const range=ref.match(/^(-?\d+(?:\.\d+)?)\s*[-–]\s*(-?\d+(?:\.\d+)?)/);
+  const x=num(v.replace(/^[<>≤≥]\s*/,''));
+  if(range && !Number.isNaN(x) && /^[<>≤≥]?\s*-?\d/.test(v)) return x<Number(range[1]) || x>Number(range[2]);
+  const upper=ref.match(/^(?:<|≤|<=|sub)\s*(\d+(?:\.\d+)?)/i); if(upper && !Number.isNaN(x) && /^[<>≤≥]?\s*\d/.test(v)) return /^[<≤]/.test(v)?false:x>Number(upper[1]);
+  const lower=ref.match(/^(?:>|≥|>=|peste)\s*(\d+(?:\.\d+)?)/i); if(lower && !Number.isNaN(x) && /^[<>≤≥]?\s*\d/.test(v)) return /^[>≥]/.test(v)?false:x<Number(lower[1]);
+  if(/^(negativ|neg|absent|absente)$/.test(normalize(ref))) return !/^(negativ|neg|absent|absente|normal|norm)$/.test(normalize(v));
+  return false;
+}
+export const DEFAULT_HIDDEN_REFERENCES = ['Leucocite','Hemoglobină','Hematocrit','Trombocite','VSH','PCR','INR','Procalcitonina','GOT','GPT','Creatinina','eRFG','Glicemie','Sodiu','Potasiu','Uree','Bilirubina totala','Bilirubina directa','Gama GT','LDH','Colesterol total','LDL colesterol','HbA1c','Trigliceride'];
+export function defaultExcludedReferences(report: LabReport): string[] {
+  return report.results.flatMap((r,i)=>r.section==='blood' && DEFAULT_HIDDEN_REFERENCES.includes(r.name) ? [referenceKey(report.id,i)] : []);
+}
+export function formatLabs(...args: Parameters<typeof formatLabsDocument>): string { return formatLabsDocument(...args).map(p=>p.map(s=>s.text).join('')).join('\n\n'); }
+export function formatLabsDocument(reports: LabReport[], includeOther = true, includeReferences = true, excludedReferences: ReadonlySet<string> = new Set(), arrangement: { reportOrder?: readonly string[]; elementOrder?: readonly string[] } = {}, underlinePathological = false): LabSegment[][] {
   if (new Set(reports.map(r=>r.patientKey)).size>1) throw new Error('Buletinele unor pacienți diferiți nu pot fi combinate.');
   if (reports.some(r=>!r.collectedAt)) throw new Error('Completează data recoltării pentru fiecare buletin.');
   const results=deduplicate(orderedReports(reports, arrangement.reportOrder).flatMap(report=>report.results.map((r,i)=>({...r,date:report.collectedAt,hideReference:excludedReferences.has(referenceKey(report.id,i))}))));
@@ -54,21 +72,23 @@ export function formatLabs(reports: LabReport[], includeOther = true, includeRef
     groups.set(key,[...(groups.get(key)??[]),r]);
   }
   const entries=[...groups.values()].sort((a,b)=>rank('blood',a[0]?.name??'')-rank('blood',b[0]?.name??''));
-  const rendered=entries.map(g=>{
-    const r=g[0]; if(!r)return ''; const joined=g.map(x=>/[<>≤≥]|\d-\d/.test(x.value)?`(${x.value})`:x.value).join('-');
-    const ref=referenceText(r);
-    return `${r.name} ${joined}${r.unit?' '+r.unit:''}${ref}`;
+  const val=(x:LabResult,text:string):LabSegment=>({text,...(underlinePathological && isPathological(x.value,x.reference)?{underline:true}:{})});
+  const join=(parts:LabSegment[][],sep:string)=>parts.flatMap((p,i)=>i?[{text:sep},...p]:p);
+  const rendered=entries.flatMap(g=>{
+    const r=g[0]; if(!r)return [];
+    const values=join(g.map(x=>[val(x,/[<>≤≥]|\d-\d/.test(x.value)?`(${x.value})`:x.value)]),'-');
+    return [[{text:r.name,bold:true},{text:' '},...values,{text:`${r.unit?' '+r.unit:''}${referenceText(r)}`}]];
   });
-  const lines: {section:string; text:string}[]=rendered.length ? [{section:'blood',text:`Hemograma: ${rendered.join(', ')}.`}] : [];
+  const lines: {section:string; segs:LabSegment[]}[]=rendered.length ? [{section:'blood',segs:[{text:'Probe serice:',bold:true},{text:' '},...join(rendered,', '),{text:'.'}]}] : [];
   for(const section of ['urine','smear'] as const) {
     const dates=[...new Set(results.filter(r=>r.section===section).map(r=>r.date))];
     for(const date of dates) {
       const rows=results.filter(r=>r.section===section && r.date===date && !r.note).sort((a,b)=>rank(section,a.name)-rank(section,b.name));
-      if(rows.length) lines.push({section,text:`${section==='urine'?'Examen Sumar de Urina':'Frotiu Sangvin'} (${displayDate(date)}): ${rows.map(r=>`${/^sediment/i.test(r.rawName)?'Sediment – ':''}${r.name} ${r.value}${r.unit?' '+r.unit:''}${referenceText(r)}`).join(', ')}.`});
+      if(rows.length) lines.push({section,segs:[{text:`${section==='urine'?'Examen Sumar de Urina':'Frotiu Sangvin'} (${displayDate(date)}): `},...join(rows.map(r=>[{text:`${/^sediment/i.test(r.rawName)?'Sediment – ':''}${r.name}`,bold:true},{text:' '},val(r,r.value),{text:`${r.unit?' '+r.unit:''}${referenceText(r)}`}]),', '),{text:'.'}]});
     }
   }
   const notes=results.filter(r=>r.note).sort((a,b)=>rank('notes',a.name)-rank('notes',b.name));
-  if(notes.length) lines.push({section:'notes',text:`Observații probe: ${notes.map(r=>`${r.name} (${displayDate(r.date)}): ${r.value}`).join('; ')}.`});
+  if(notes.length) lines.push({section:'notes',segs:[{text:'Observații probe: '},...join(notes.map(r=>[{text:`${r.name} (${displayDate(r.date)}):`,bold:true},{text:` ${r.value}`}]),'; '),{text:'.'}]});
   const defaults = ['blood','urine','smear','notes'];
-  return lines.sort((a,b)=>(positions.get(sectionKey(a.section)) ?? positions.size+defaults.indexOf(a.section))-(positions.get(sectionKey(b.section)) ?? positions.size+defaults.indexOf(b.section))).map(line=>line.text).join('\n\n');
+  return lines.sort((a,b)=>(positions.get(sectionKey(a.section)) ?? positions.size+defaults.indexOf(a.section))-(positions.get(sectionKey(b.section)) ?? positions.size+defaults.indexOf(b.section))).map(line=>line.segs);
 }
