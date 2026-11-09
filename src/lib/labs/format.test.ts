@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatLabs, parseDate, referenceKey, resultFromCells, type LabReport } from './format';
 import { metadata, parseHtml, parsePdfItems, splitReference } from './parse';
+import { elementKey, sectionKey, templateElements, transferReport, moveItem } from './arrange';
 
 const report = (date: string, value: string, patientKey = 'patient:example'): LabReport => ({
   id: date, filename: 'example.html', patientKey, patientName: 'Example', collectedAt: date,
@@ -13,6 +14,37 @@ const html = `<p>NUME: Exemplu Test<br>CNP: 1234567890123<br>Data si ora recolta
 </tbody></table>`;
 
 describe('laboratory formatting rules', () => {
+  it('uses explicit bulletin ordering for blood series and dated urine blocks without changing dates', () => {
+    const a=report('2026-11-07T08:00:00','1'), b=report('2026-11-08T08:00:00','2');
+    for(const r of [a,b]) r.results.push(resultFromCells('Proteine',r===a?'10':'20','mg/dL','','urine','',''));
+    const output=formatLabs([a,b],true,true,new Set(),{reportOrder:moveItem([a.id,b.id],b.id,a.id)});
+    expect(output).toContain('Creatinina 2-1 mg/dL');
+    expect(output.indexOf('08.11.2026')).toBeLessThan(output.indexOf('07.11.2026'));
+    expect(a.collectedAt).toBe('2026-11-07T08:00:00');
+    expect(formatLabs([b,a])).toContain('Creatinina 1-2 mg/dL');
+  });
+  it('reorders template, extra, urine, smear and note elements and section blocks', () => {
+    const a=report('2026-11-07T08:00:00','1');
+    a.results.push(resultFromCells('Leucocite','8000','/µL','','blood','',''),resultFromCells('Extra','5','U/L','','blood','',''),resultFromCells('Proteine','10','','','urine','',''),resultFromCells('Glucoza','20','','','urine','',''),resultFromCells('A frotiu','1','','','smear','',''),resultFromCells('B frotiu','2','','','smear','',''),resultFromCells('A nota','prima','','','blood','','',true),resultFromCells('B nota','a doua','','','blood','','',true));
+    const elementOrder=[sectionKey('urine'),elementKey('urine','Glucoza'),elementKey('urine','Proteine'),elementKey('blood','Extra'),elementKey('blood','Creatinina'),elementKey('blood','Leucocite'),elementKey('smear','B frotiu'),elementKey('smear','A frotiu'),elementKey('notes','B nota'),elementKey('notes','A nota')];
+    const output=formatLabs([a],true,true,new Set(),{elementOrder});
+    expect(output.startsWith('Examen Sumar de Urina')).toBe(true);
+    expect(output).toContain('Glucoza 20, Proteine 10');
+    expect(output).toContain('Extra 5 U/L, Creatinina 1 mg/dL, Leucocite 8000 /µL');
+    expect(output).toContain('B frotiu 2, A frotiu 1');
+    expect(output.indexOf('B nota')).toBeLessThan(output.indexOf('A nota'));
+    expect(templateElements([a]).map(e=>e.id)).toEqual(expect.arrayContaining(elementOrder));
+  });
+  it('transfers only the chosen bulletin and recomputes both patients without changing source measurements', () => {
+    const a=report('2026-11-07T08:00:00','1'), b=report('2026-11-08T08:00:00','2'), c=report('2026-11-09T08:00:00','3','patient:other');
+    const next=transferReport([a,b,c],b.id,{key:c.patientKey,name:'Other'});
+    expect(formatLabs(next.filter(r=>r.patientKey===a.patientKey))).toContain('Creatinina 1 mg/dL');
+    expect(formatLabs(next.filter(r=>r.patientKey===c.patientKey))).toContain('Creatinina 2-3 mg/dL');
+    expect(next[1]?.originalPatient).toEqual({key:'patient:example',name:'Example'});
+    expect(next[1]?.results).toBe(b.results);
+    expect(b.patientKey).toBe('patient:example');
+    expect(next[1]?.filename).toBe('example.html');
+  });
   it('includes supplied normal ranges for every analysis, including urine and smear', () => {
     const a = report('2026-11-07T08:00:00', '1');
     a.results = [
