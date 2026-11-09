@@ -1,6 +1,7 @@
 import { clean, normalize, nameFor, templateRank, TEMPLATE } from './catalog';
+import { elementKey, orderedReports, sectionKey } from './arrange';
 export type LabResult = { name: string; rawName: string; value: string; unit: string; reference: string; referenceUnit?: string; section: 'blood' | 'urine' | 'smear'; date: string; source: string; note?: boolean };
-export type LabReport = { id: string; filename: string; patientKey: string; patientName: string; collectedAt: string; results: LabResult[]; warnings: string[] };
+export type LabReport = { id: string; filename: string; patientKey: string; patientName: string; originalPatient?: { key: string; name: string }; collectedAt: string; results: LabResult[]; warnings: string[] };
 const months: Record<string, string> = { jan:'01', ian:'01', feb:'02', mar:'03', apr:'04', may:'05', mai:'05', jun:'06', iun:'06', jul:'07', iul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
 export function parseDate(input: string): string {
   const s = normalize(input);
@@ -37,10 +38,12 @@ export function deduplicate<T extends LabResult>(results: T[]): T[] {
   return results.filter(r=>{ const key=JSON.stringify([r.section,r.date,normalize(r.name),r.value,normalize(r.unit),r.reference,r.referenceUnit??r.unit,!!r.note]); if(seen.has(key)) return false; seen.add(key); return true; });
 }
 export function referenceKey(reportId: string, resultIndex: number) { return JSON.stringify([reportId, resultIndex]); }
-export function formatLabs(reports: LabReport[], includeOther = true, includeReferences = true, excludedReferences: ReadonlySet<string> = new Set()): string {
+export function formatLabs(reports: LabReport[], includeOther = true, includeReferences = true, excludedReferences: ReadonlySet<string> = new Set(), arrangement: { reportOrder?: readonly string[]; elementOrder?: readonly string[] } = {}): string {
   if (new Set(reports.map(r=>r.patientKey)).size>1) throw new Error('Buletinele unor pacienți diferiți nu pot fi combinate.');
   if (reports.some(r=>!r.collectedAt)) throw new Error('Completează data recoltării pentru fiecare buletin.');
-  const results=deduplicate(reports.flatMap(report=>report.results.map((r,i)=>({...r,date:report.collectedAt,hideReference:excludedReferences.has(referenceKey(report.id,i))})))).sort((a,b)=>a.date.localeCompare(b.date));
+  const results=deduplicate(orderedReports(reports, arrangement.reportOrder).flatMap(report=>report.results.map((r,i)=>({...r,date:report.collectedAt,hideReference:excludedReferences.has(referenceKey(report.id,i))}))));
+  const positions = new Map((arrangement.elementOrder ?? []).map((id, i) => [id, i]));
+  const rank = (section: string, name: string) => positions.get(elementKey(section, name)) ?? (positions.size + templateRank(name));
   const referenceText=(r:LabResult & {hideReference:boolean})=>{const unit=r.referenceUnit??r.unit;return includeReferences && !r.hideReference && r.reference?` (VN: ${r.reference}${unit?' '+unit:''})`:'';};
   const blood=results.filter(r=>r.section==='blood' && !r.note);
   const groups=new Map<string,typeof results>();
@@ -50,21 +53,22 @@ export function formatLabs(reports: LabReport[], includeOther = true, includeRef
     const key=JSON.stringify([r.name,normalize(r.unit),r.reference,r.referenceUnit??r.unit,r.hideReference]);
     groups.set(key,[...(groups.get(key)??[]),r]);
   }
-  const entries=[...groups.values()].sort((a,b)=>templateRank(a[0]?.name??'')-templateRank(b[0]?.name??''));
+  const entries=[...groups.values()].sort((a,b)=>rank('blood',a[0]?.name??'')-rank('blood',b[0]?.name??''));
   const rendered=entries.map(g=>{
     const r=g[0]; if(!r)return ''; const joined=g.map(x=>/[<>≤≥]|\d-\d/.test(x.value)?`(${x.value})`:x.value).join('-');
     const ref=referenceText(r);
     return `${r.name} ${joined}${r.unit?' '+r.unit:''}${ref}`;
   });
-  const lines=rendered.length ? [`Hemograma: ${rendered.join(', ')}.`] : [];
+  const lines: {section:string; text:string}[]=rendered.length ? [{section:'blood',text:`Hemograma: ${rendered.join(', ')}.`}] : [];
   for(const section of ['urine','smear'] as const) {
     const dates=[...new Set(results.filter(r=>r.section===section).map(r=>r.date))];
     for(const date of dates) {
-      const rows=results.filter(r=>r.section===section && r.date===date && !r.note);
-      if(rows.length) lines.push(`${section==='urine'?'Examen Sumar de Urina':'Frotiu Sangvin'} (${displayDate(date)}): ${rows.map(r=>`${/^sediment/i.test(r.rawName)?'Sediment – ':''}${r.name} ${r.value}${r.unit?' '+r.unit:''}${referenceText(r)}`).join(', ')}.`);
+      const rows=results.filter(r=>r.section===section && r.date===date && !r.note).sort((a,b)=>rank(section,a.name)-rank(section,b.name));
+      if(rows.length) lines.push({section,text:`${section==='urine'?'Examen Sumar de Urina':'Frotiu Sangvin'} (${displayDate(date)}): ${rows.map(r=>`${/^sediment/i.test(r.rawName)?'Sediment – ':''}${r.name} ${r.value}${r.unit?' '+r.unit:''}${referenceText(r)}`).join(', ')}.`});
     }
   }
-  const notes=results.filter(r=>r.note);
-  if(notes.length) lines.push(`Observații probe: ${notes.map(r=>`${r.name} (${displayDate(r.date)}): ${r.value}`).join('; ')}.`);
-  return lines.join('\n\n');
+  const notes=results.filter(r=>r.note).sort((a,b)=>rank('notes',a.name)-rank('notes',b.name));
+  if(notes.length) lines.push({section:'notes',text:`Observații probe: ${notes.map(r=>`${r.name} (${displayDate(r.date)}): ${r.value}`).join('; ')}.`});
+  const defaults = ['blood','urine','smear','notes'];
+  return lines.sort((a,b)=>(positions.get(sectionKey(a.section)) ?? positions.size+defaults.indexOf(a.section))-(positions.get(sectionKey(b.section)) ?? positions.size+defaults.indexOf(b.section))).map(line=>line.text).join('\n\n');
 }
