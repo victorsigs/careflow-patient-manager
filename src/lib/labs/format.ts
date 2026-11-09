@@ -31,7 +31,7 @@ export function resultFromCells(rawName: string, rawValue: string, rawUnit: stri
   if (section==='urine') value = normalize(value)==='neg' ? 'negativ' : normalize(value)==='norm' ? 'normal' : value;
   return {name, rawName:clean(rawName), value, unit, reference:clean(reference), section,date,source, note};
 }
-export function deduplicate(results: LabResult[]) {
+export function deduplicate<T extends LabResult>(results: T[]): T[] {
   const seen=new Set<string>();
   return results.filter(r=>{ const key=JSON.stringify([r.section,r.date,normalize(r.name),r.value,normalize(r.unit),r.reference,!!r.note]); if(seen.has(key)) return false; seen.add(key); return true; });
 }
@@ -39,14 +39,14 @@ export function referenceKey(reportId: string, resultIndex: number) { return JSO
 export function formatLabs(reports: LabReport[], includeOther = true, includeReferences = true, excludedReferences: ReadonlySet<string> = new Set()): string {
   if (new Set(reports.map(r=>r.patientKey)).size>1) throw new Error('Buletinele unor pacienți diferiți nu pot fi combinate.');
   if (reports.some(r=>!r.collectedAt)) throw new Error('Completează data recoltării pentru fiecare buletin.');
-  const results=deduplicate(reports.flatMap(report=>report.results.map((r,i)=>({...r,date:report.collectedAt,reference:excludedReferences.has(referenceKey(report.id,i))?'':r.reference})))).sort((a,b)=>a.date.localeCompare(b.date));
-  const referenceText=(r:LabResult)=>includeReferences && r.reference?` (VN: ${r.reference}${r.unit?' '+r.unit:''})`:'';
+  const results=deduplicate(reports.flatMap(report=>report.results.map((r,i)=>({...r,date:report.collectedAt,hideReference:excludedReferences.has(referenceKey(report.id,i))})))).sort((a,b)=>a.date.localeCompare(b.date));
+  const referenceText=(r:LabResult & {hideReference:boolean})=>includeReferences && !r.hideReference && r.reference?` (VN: ${r.reference}${r.unit?' '+r.unit:''})`:'';
   const blood=results.filter(r=>r.section==='blood' && !r.note);
-  const groups=new Map<string,LabResult[]>();
+  const groups=new Map<string,typeof results>();
   for(const r of blood) {
     if(!includeOther && templateRank(r.name)>=TEMPLATE.length) continue;
     // Different units or reference ranges remain distinct, never collapsed into misleading series.
-    const key=JSON.stringify([r.name,normalize(r.unit),r.reference]);
+    const key=JSON.stringify([r.name,normalize(r.unit),r.reference,r.hideReference]);
     groups.set(key,[...(groups.get(key)??[]),r]);
   }
   const entries=[...groups.values()].sort((a,b)=>templateRank(a[0]?.name??'')-templateRank(b[0]?.name??''));
