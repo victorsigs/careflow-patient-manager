@@ -1,5 +1,5 @@
 import { clean, normalize, nameFor, templateRank, TEMPLATE } from './catalog';
-export type LabResult = { name: string; rawName: string; value: string; unit: string; reference: string; section: 'blood' | 'urine' | 'smear'; date: string; source: string; note?: boolean };
+export type LabResult = { name: string; rawName: string; value: string; unit: string; reference: string; referenceUnit?: string; section: 'blood' | 'urine' | 'smear'; date: string; source: string; note?: boolean };
 export type LabReport = { id: string; filename: string; patientKey: string; patientName: string; collectedAt: string; results: LabResult[]; warnings: string[] };
 const months: Record<string, string> = { jan:'01', ian:'01', feb:'02', mar:'03', apr:'04', may:'05', mai:'05', jun:'06', iun:'06', jul:'07', iul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
 export function parseDate(input: string): string {
@@ -20,6 +20,7 @@ export function displayDate(s: string) { if (!s) return 'Dată lipsă'; const [d
 export function resultFromCells(rawName: string, rawValue: string, rawUnit: string, reference: string, section: LabResult['section'], date: string, source: string, note = false): LabResult {
   const name = nameFor(rawName, section);
   let value = clean(rawValue), unit=clean(rawUnit);
+  const referenceUnit=unit;
   // Only count units explicitly written as 10^3 are converted. Never guess a multiplier.
   const count = /^(?:[<>≤≥]\s*)?\d+(?:[.,]\d+)?$/.test(value);
   if ((name==='Leucocite' || name==='Trombocite') && count && /10\s*\^?\s*3\s*\/\s*[µμu]l/i.test(unit)) {
@@ -29,24 +30,24 @@ export function resultFromCells(rawName: string, rawValue: string, rawUnit: stri
   const trailing = value.match(/^([<>≤≥]?\s*\d+(?:[.,]\d+)?)\s+(.+)$/);
   if (trailing?.[1] && trailing[2] && /^(?:mg|g|mmol|µmol|ng|pg|[µμu]g|[µμu]i?u|u|ui|iu|leu|ery|%|\/)/i.test(trailing[2])) { value=trailing[1]; unit=trailing[2]; }
   if (section==='urine') value = normalize(value)==='neg' ? 'negativ' : normalize(value)==='norm' ? 'normal' : value;
-  return {name, rawName:clean(rawName), value, unit, reference:clean(reference), section,date,source, note};
+  return {name, rawName:clean(rawName), value, unit, reference:clean(reference), ...(referenceUnit!==unit?{referenceUnit}:{}), section,date,source, note};
 }
 export function deduplicate<T extends LabResult>(results: T[]): T[] {
   const seen=new Set<string>();
-  return results.filter(r=>{ const key=JSON.stringify([r.section,r.date,normalize(r.name),r.value,normalize(r.unit),r.reference,!!r.note]); if(seen.has(key)) return false; seen.add(key); return true; });
+  return results.filter(r=>{ const key=JSON.stringify([r.section,r.date,normalize(r.name),r.value,normalize(r.unit),r.reference,r.referenceUnit??r.unit,!!r.note]); if(seen.has(key)) return false; seen.add(key); return true; });
 }
 export function referenceKey(reportId: string, resultIndex: number) { return JSON.stringify([reportId, resultIndex]); }
 export function formatLabs(reports: LabReport[], includeOther = true, includeReferences = true, excludedReferences: ReadonlySet<string> = new Set()): string {
   if (new Set(reports.map(r=>r.patientKey)).size>1) throw new Error('Buletinele unor pacienți diferiți nu pot fi combinate.');
   if (reports.some(r=>!r.collectedAt)) throw new Error('Completează data recoltării pentru fiecare buletin.');
   const results=deduplicate(reports.flatMap(report=>report.results.map((r,i)=>({...r,date:report.collectedAt,hideReference:excludedReferences.has(referenceKey(report.id,i))})))).sort((a,b)=>a.date.localeCompare(b.date));
-  const referenceText=(r:LabResult & {hideReference:boolean})=>includeReferences && !r.hideReference && r.reference?` (VN: ${r.reference}${r.unit?' '+r.unit:''})`:'';
+  const referenceText=(r:LabResult & {hideReference:boolean})=>{const unit=r.referenceUnit??r.unit;return includeReferences && !r.hideReference && r.reference?` (VN: ${r.reference}${unit?' '+unit:''})`:'';};
   const blood=results.filter(r=>r.section==='blood' && !r.note);
   const groups=new Map<string,typeof results>();
   for(const r of blood) {
     if(!includeOther && templateRank(r.name)>=TEMPLATE.length) continue;
     // Different units or reference ranges remain distinct, never collapsed into misleading series.
-    const key=JSON.stringify([r.name,normalize(r.unit),r.reference,r.hideReference]);
+    const key=JSON.stringify([r.name,normalize(r.unit),r.reference,r.referenceUnit??r.unit,r.hideReference]);
     groups.set(key,[...(groups.get(key)??[]),r]);
   }
   const entries=[...groups.values()].sort((a,b)=>templateRank(a[0]?.name??'')-templateRank(b[0]?.name??''));
