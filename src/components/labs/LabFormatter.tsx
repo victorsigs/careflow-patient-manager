@@ -38,7 +38,7 @@ export function LabFormatter() {
     return (ai<0?elementOrder.length+elements.indexOf(a):ai)-(bi<0?elementOrder.length+elements.indexOf(b):bi);
   });
   const missingDate=current.some(r=>!r.collectedAt);
-  const generated=useMemo(()=>{ const chosen=reports.filter(r=>r.patientKey===selected); return chosen.length && chosen.every(r=>r.collectedAt)?formatLabs(chosen,other,refs,excluded,{reportOrder:reportOrders[selected],elementOrder}):''; },[reports,selected,other,refs,excluded,reportOrders,elementOrder]);
+  const generated=useMemo(()=>{ const chosen=reports.filter(r=>r.patientKey===selected); return chosen.length && chosen.every(r=>r.collectedAt)?formatLabs(chosen,other,refs,excluded,{reportOrder:reportOrders[selected]??[],elementOrder}):''; },[reports,selected,other,refs,excluded,reportOrders,elementOrder]);
   const output=edited?.text??generated;
   const formattedHtml=()=>`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Analize sistematizate</title></head><body><div style="font-family:Arial,sans-serif;font-size:10pt;line-height:1.5">${edited?.html??generated.split('\n\n').map(p=>`<p>${p.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>`).join('')}</div></body></html>`;
   const count=current.reduce((n,r)=>n+r.results.length,0);
@@ -67,7 +67,8 @@ export function LabFormatter() {
       const next={...old};
       const destination=next[target];
       if(destination)next[target]=[...destination.filter(id=>id!==moving.id),moving.id];
-      if(next[moving.patientKey])next[moving.patientKey]=next[moving.patientKey].filter(id=>id!==moving.id);
+      const source=next[moving.patientKey];
+      if(source)next[moving.patientKey]=source.filter(id=>id!==moving.id);
       return next;
     });
     if(current.length===1)setSelected(target);
