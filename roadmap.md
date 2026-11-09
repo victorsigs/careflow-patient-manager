@@ -1,4 +1,7 @@
 # Requested changes
+- [ ] Add reordering template capsules for every formatted element.
+- [ ] Add bulletin drag-and-drop ordering reflected in result series.
+- [ ] Add patient-to-patient bulletin transfers and verify both outputs.
 - [x] Add Arial 10 rich-text editing with size, bold, italic and underline; preserve styles when copying/exporting.
 - [x] Include reference ranges for all analyses and allow individual exclusions in extracted results; verify rules and UI.
 - [x] Move contrast selection to eligible CT/RMN rows and verify individual choices.
