@@ -6,7 +6,7 @@ export const elementKey = (section: string, name: string) => JSON.stringify([sec
 export const sectionKey = (section: string) => `section:${section}`;
 export function templateElements(reports: LabReport[]): TemplateElement[] {
   const elements: TemplateElement[] = [
-    { id: sectionKey('blood'), label: 'Hemograma' },
+    { id: sectionKey('blood'), label: 'Probe serice' },
     ...TEMPLATE.map(([name]) => ({ id: elementKey('blood', name), label: name })),
     { id: sectionKey('urine'), label: 'Examen Sumar de Urina' },
     { id: sectionKey('smear'), label: 'Frotiu Sangvin' },
