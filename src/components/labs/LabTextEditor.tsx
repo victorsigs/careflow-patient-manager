@@ -16,7 +16,7 @@ export function LabTextEditor({ text, resetKey, en, onChange }: { text: string; 
     editorProps: { attributes: { class: 'lab-text-editor', role: 'textbox', 'aria-label': 'Text sistematizat', 'aria-multiline': 'true' } },
     onUpdate: ({ editor: current }) => onChange({ text: current.getText({ blockSeparator: '\n\n' }), html: current.getHTML() }),
     onTransaction: () => refresh(n => n + 1),
-    onSelectionUpdate: ({ editor: current }) => setSize(String(parseFloat(current.getAttributes('textStyle').fontSize || '10'))),
+    onSelectionUpdate: ({ editor: current }) => setSize(String(parseFloat(current.getAttributes('textStyle')['fontSize'] || '10'))),
   });
   useEffect(() => {
     if (!editor) return;

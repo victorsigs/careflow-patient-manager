@@ -65,6 +65,11 @@ describe('laboratory formatting rules', () => {
     expect(resultFromCells('Trombocite','120','10^3/µL','','blood','','').value).toBe('120000');
     expect(resultFromCells('Leucocite','8.1','/µL','','blood','','').value).toBe('8.1');
   });
+  it('retains the original reference unit when count values are converted', () => {
+    const a = report('2026-11-07T08:00:00','1');
+    a.results = [resultFromCells('Leucocite','8.1','10^3/µL','4 - 10','blood','','')];
+    expect(formatLabs([a])).toContain('Leucocite 8100 /µL (VN: 4 - 10 10^3/µL)');
+  });
   it('removes duplicated measurements but retains later equal values', () => {
     const a = report('2026-11-07T08:00:00','1');
     expect(formatLabs([a,a,report('2026-11-08T08:00:00','1')])).toContain('Creatinina 1-1 mg/dL');
