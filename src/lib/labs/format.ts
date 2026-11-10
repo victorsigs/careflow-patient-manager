@@ -67,8 +67,8 @@ export function formatLabsDocument(reports: LabReport[], includeOther = true, in
   const groups=new Map<string,typeof results>();
   for(const r of blood) {
     if(!includeOther && templateRank(r.name)>=TEMPLATE.length) continue;
-    // Different units or reference ranges remain distinct, never collapsed into misleading series.
-    const key=JSON.stringify([r.name,normalize(r.unit),r.reference,r.referenceUnit??r.unit,r.hideReference]);
+    // A series shares an analysis and measurement unit; references belong to individual results.
+    const key=JSON.stringify([r.name,normalize(r.unit)]);
     groups.set(key,[...(groups.get(key)??[]),r]);
   }
   const entries=[...groups.values()].sort((a,b)=>rank('blood',a[0]?.name??'')-rank('blood',b[0]?.name??''));
@@ -76,8 +76,9 @@ export function formatLabsDocument(reports: LabReport[], includeOther = true, in
   const join=(parts:LabSegment[][],sep:string)=>parts.flatMap((p,i)=>i?[{text:sep},...p]:p);
   const rendered=entries.flatMap(g=>{
     const r=g[0]; if(!r)return [];
-    const values=join(g.map(x=>[val(x,/[<>≤≥]|\d-\d/.test(x.value)?`(${x.value})`:x.value)]),'-');
-    return [[{text:r.name,bold:true},{text:' '},...values,{text:`${r.unit?' '+r.unit:''}${referenceText(r)}`}]];
+    const sharedReference=g.every(x=>referenceText(x)===referenceText(r));
+    const values=join(g.map(x=>[val(x,/[<>≤≥]|\d-\d/.test(x.value)?`(${x.value})`:x.value),...(!sharedReference && referenceText(x)?[{text:referenceText(x)}]:[])]),'-');
+    return [[{text:r.name,bold:true},{text:' '},...values,{text:`${r.unit?' '+r.unit:''}${sharedReference?referenceText(r):''}`}]];
   });
   const lines: {section:string; segs:LabSegment[]}[]=rendered.length ? [{section:'blood',segs:[{text:'Probe serice:',bold:true},{text:' '},...join(rendered,', '),{text:'.'}]}] : [];
   for(const section of ['urine','smear'] as const) {

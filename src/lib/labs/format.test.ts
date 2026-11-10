@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatLabs, parseDate, referenceKey, resultFromCells, type LabReport } from './format';
+import { defaultExcludedReferences, formatLabs, parseDate, referenceKey, resultFromCells, type LabReport } from './format';
 import { metadata, parseHtml, parsePdfItems, splitReference } from './parse';
 import { elementKey, sectionKey, templateElements, transferReport, moveItem } from './arrange';
 
@@ -67,8 +67,8 @@ describe('laboratory formatting rules', () => {
     const b = report('2026-11-08T08:00:00', '2');
     b.results[0] = resultFromCells('Creatinina','2','mg/dL','0.5 - 1.2','blood','','');
     const output = formatLabs([a,b],true,true,new Set([referenceKey(a.id,0)]));
-    expect(output).toContain('Creatinina 1 mg/dL,');
-    expect(output).toContain('Creatinina 2 mg/dL (VN: 0.5 - 1.2 mg/dL)');
+    expect(output).toContain('Creatinina 1-2 (VN: 0.5 - 1.2 mg/dL) mg/dL');
+    expect(output.match(/Creatinina/g)).toHaveLength(1);
     expect(output).toContain('Uree 30 mg/dL (VN: 15 - 40 mg/dL)');
   });
   it('orders values by collection time rather than upload order', () => {
@@ -80,17 +80,31 @@ describe('laboratory formatting rules', () => {
   it('blocks formatting until missing collection dates are supplied', () => {
     expect(() => formatLabs([report('', '1')])).toThrow();
   });
-  it('preserves separate units and reference ranges', () => {
+  it('preserves separate measurement units and attaches differing references to their own values', () => {
     const a = report('2026-11-07T08:00:00', '1');
     const b = report('2026-11-08T08:00:00', '88');
     const c = report('2026-11-09T08:00:00', '2');
     if (b.results[0]) b.results[0].unit = 'µmol/L';
     if (c.results[0]) c.results[0].reference = '0.7 - 1.3';
     const output = formatLabs([a,b,c]);
-    expect(output).toContain('Creatinina 1 mg/dL');
+    expect(output).toContain('Creatinina 1-2 (VN: 0.7 - 1.3 mg/dL) mg/dL');
     expect(output).toContain('Creatinina 88 µmol/L');
-    expect(output).toContain('Creatinina 2 mg/dL');
     expect(output).not.toContain('1-88-2');
+  });
+  it('merges the reported creatinine, glucose and urea series despite differing excluded ranges', () => {
+    const a=report('2026-11-05T08:00:00','0.78'), b=report('2026-11-07T08:00:00','0.77');
+    a.results=[resultFromCells('Creatinina','0.78','mg/dL','0.7 - 1.3','blood','',''),resultFromCells('Glucoza','84.00','mg/dL','74 - 99','blood','',''),resultFromCells('Uree','44.94','mg/dL','17.97 - 54','blood','','')];
+    b.results=[resultFromCells('Creatinina','0.77','mg/dL','0.72 - 1.25','blood','',''),resultFromCells('Glucoza','84.00','mg/dL','83 - 110','blood','',''),resultFromCells('Uree','40.66','mg/dL','17.97 - 54.9','blood','','')];
+    const excluded=new Set([a,b].flatMap(defaultExcludedReferences));
+    expect(formatLabs([b,a],false,true,excluded)).toBe('Probe serice: Creatinina 0.78-0.77 mg/dL, Glicemie 84.00-84.00 mg/dL, Uree 44.94-40.66 mg/dL.');
+    expect(formatLabs([b,a],false,true,excluded,{reportOrder:[b.id,a.id]})).toContain('Creatinina 0.77-0.78 mg/dL');
+    expect(formatLabs([b,a],false,false)).toBe(formatLabs([b,a],false,true,excluded));
+  });
+  it('keeps different included normal ranges linked to values within one named series', () => {
+    const a=report('2026-11-05T08:00:00','0.78'), b=report('2026-11-07T08:00:00','0.77');
+    a.results[0]=resultFromCells('Creatinina','0.78','mg/dL','0.7 - 1.3','blood','','');
+    b.results[0]=resultFromCells('Creatinina','0.77','mg/dL','0.72 - 1.25','blood','','');
+    expect(formatLabs([b,a])).toBe('Probe serice: Creatinina 0.78 (VN: 0.7 - 1.3 mg/dL)-0.77 (VN: 0.72 - 1.25 mg/dL) mg/dL.');
   });
   it('converts only explicit count multipliers', () => {
     expect(resultFromCells('Leucocite','8.1','10^3/µL','','blood','','').value).toBe('8100');
