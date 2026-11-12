@@ -19,15 +19,19 @@ export const TEMPLATE = [
   ['Anti dsDNA IgG', 'anti dsdna igg'], ['ASLO cantitativ', 'aslo cantitativ|aslo'],
   ['Imunoglobulina A', 'imunoglobulina a'], ['Imunoglobulina M', 'imunoglobulina m'], ['Imunoglobulina G', 'imunoglobulina g'],
   ['Complement C3', 'complement c3'], ['Complement C4', 'complement c4'],
-  ['Anticorpi totali anti-Treponema pallidum', 'anticorpi totali anti-treponema pallidum'], ['AFP', 'afp'],
+  ['Anticorpi totali anti-Treponema pallidum', 'anticorpi totali anti-treponema pallidum'],
   ['Ac Anti HCV', 'ac anti hcv|anticorpi anti hcv'], ['Antigen HBs', 'antigen hbs|aghbs'],
-  ['CA 19-9', 'ca 19-9'], ['Antigen Carcinoembrionar', 'antigen carcinoembrionar|cea'], ['PSA', 'psa'],
+  ['Ac Anti HIV', 'ac anti hiv|anticorpi anti hiv|anticorpi anti-hiv|hiv|hiv ag/ac|hiv ag/ab|hiv combo'],
+  ['Homocisteina', 'homocisteina'], ['Alfafetoproteina', 'afp|alfafetoproteina|alfa fetoproteina|afp (alfafetoproteina)'],
+  ['CA 19-9', 'ca 19-9|ca 19-9 (cancer antigen 19-9)'], ['CEA', 'antigen carcinoembrionar|cea|cea (antigen carcinoembrionar)'], ['PSA', 'psa'],
   ['Sideremie', 'sideremie'], ['Feritina', 'feritina'], ['Parathormon', 'parathormon|pth'],
 ] as const;
 const urine: Record<string, string> = { bil: 'Bilirubina', ubg: 'Urobilinogen', ket: 'Corpi cetonici', asc: 'Acid ascorbic', glu: 'Glucoza', pro: 'Proteine', ery: 'Eritrocite', ph: 'pH', nit: 'Nitriti', leu: 'Leucocite', sg: 'Densitate' };
+const smear: Record<string, string> = { segmentat:'Segmentate', segmentate:'Segmentate', eozinofil:'Eozinofile', eozinofile:'Eozinofile', bazofil:'Bazofile', bazofile:'Bazofile', monocit:'Monocite', monocite:'Monocite', limfocit:'Limfocite', limfocite:'Limfocite' };
 export function nameFor(raw: string, section: string) {
   const n = normalize(raw).replace(/\s*comentariu\s*$/, '').replace(/:$/, '').trim();
   if (section === 'urine') return urine[n] ?? clean(raw.replace(/^sediment\s*-\s*/i, '').replace(/:$/, ''));
+  if (section === 'smear') return smear[n] ?? clean(raw.replace(/\*/g, ''));
   return TEMPLATE.find(([, aliases]) => aliases.split('|').includes(n))?.[0] ?? clean(raw.replace(/\*/g, ''));
 }
 export const templateRank = (name: string) => {

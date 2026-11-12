@@ -1,4 +1,5 @@
 # Requested changes
+- [x] Recognize missing tumor markers and homocysteine, retain complete smear blocks, and use bulletin-supplied hepatitis/HIV interpretations; test with uploaded bulletins.
 - [x] Add reordering template capsules for every formatted element.
 - [x] Add bulletin drag-and-drop ordering reflected in result series.
 - [x] Add patient-to-patient bulletin transfers and verify both outputs.

@@ -57,7 +57,7 @@ describe('laboratory formatting rules', () => {
     expect(output).toContain('Creatinina 1 mg/dL (VN: 0.5 - 1.2 mg/dL)');
     expect(output).toContain('Test suplimentar 5 U/L (VN: 2 - 7 U/L)');
     expect(output).toContain('Proteine negativ (VN: negativ)');
-    expect(output).toContain('Test frotiu 1 % (VN: 0 - 2 %)');
+    expect(output).toContain('Test frotiu 1% (VN: 0 - 2 %)');
     expect(formatLabs([a],true,false)).not.toContain('VN:');
   });
   it('excludes selected ranges without removing results or other ranges', () => {

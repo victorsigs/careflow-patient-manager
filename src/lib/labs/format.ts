@@ -1,6 +1,6 @@
 import { clean, normalize, nameFor, templateRank, TEMPLATE } from './catalog';
 import { elementKey, orderedReports, sectionKey } from './arrange';
-export type LabResult = { name: string; rawName: string; value: string; unit: string; reference: string; referenceUnit?: string; section: 'blood' | 'urine' | 'smear'; date: string; source: string; note?: boolean };
+export type LabResult = { name: string; rawName: string; value: string; unit: string; reference: string; referenceUnit?: string; section: 'blood' | 'urine' | 'smear'; date: string; source: string; note?: boolean; interpretation?: string; interpretationFor?: number };
 export type LabReport = { id: string; filename: string; patientKey: string; patientName: string; originalPatient?: { key: string; name: string }; collectedAt: string; results: LabResult[]; warnings: string[] };
 const months: Record<string, string> = { jan:'01', ian:'01', feb:'02', mar:'03', apr:'04', may:'05', mai:'05', jun:'06', iun:'06', jul:'07', iul:'07', aug:'08', sep:'09', oct:'10', nov:'11', dec:'12' };
 export function parseDate(input: string): string {
@@ -35,7 +35,7 @@ export function resultFromCells(rawName: string, rawValue: string, rawUnit: stri
 }
 export function deduplicate<T extends LabResult>(results: T[]): T[] {
   const seen=new Set<string>();
-  return results.filter(r=>{ const key=JSON.stringify([r.section,r.date,normalize(r.name),r.value,normalize(r.unit),r.reference,r.referenceUnit??r.unit,!!r.note]); if(seen.has(key)) return false; seen.add(key); return true; });
+   return results.filter(r=>{ const key=JSON.stringify([r.section,r.date,normalize(r.name),r.value,normalize(r.unit),r.reference,r.referenceUnit??r.unit,!!r.note,r.interpretation,r.interpretationFor]); if(seen.has(key)) return false; seen.add(key); return true; });
 }
 export function referenceKey(reportId: string, resultIndex: number) { return JSON.stringify([reportId, resultIndex]); }
 export type LabSegment = { text: string; bold?: boolean; underline?: boolean };
@@ -77,18 +77,20 @@ export function formatLabsDocument(reports: LabReport[], includeOther = true, in
   const rendered=entries.flatMap(g=>{
     const r=g[0]; if(!r)return [];
     const sharedReference=g.every(x=>referenceText(x)===referenceText(r));
-    const values=join(g.map(x=>[val(x,/[<>≤≥]|\d-\d/.test(x.value)?`(${x.value})`:x.value),...(!sharedReference && referenceText(x)?[{text:referenceText(x)}]:[])]),'-');
-    return [[{text:r.name,bold:true},{text:' '},...values,{text:`${r.unit?' '+r.unit:''}${sharedReference?referenceText(r):''}`}]];
+    const qualitative=g.every(x=>!!x.interpretation);
+    const values=join(g.map(x=>[val(x,x.interpretation??(/[<>≤≥]|\d-\d/.test(x.value)?`(${x.value})`:x.value)),...(!qualitative && !sharedReference && referenceText(x)?[{text:referenceText(x)}]:[])]),'-');
+    return [[{text:r.name,bold:true},{text:' '},...values,{text:qualitative?'':`${r.unit?' '+r.unit:''}${sharedReference?referenceText(r):''}`}]];
   });
   const lines: {section:string; segs:LabSegment[]}[]=rendered.length ? [{section:'blood',segs:[{text:'Probe serice:',bold:true},{text:' '},...join(rendered,', '),{text:'.'}]}] : [];
   for(const section of ['urine','smear'] as const) {
     const dates=[...new Set(results.filter(r=>r.section===section).map(r=>r.date))];
     for(const date of dates) {
       const rows=results.filter(r=>r.section===section && r.date===date && !r.note).sort((a,b)=>rank(section,a.name)-rank(section,b.name));
-      if(rows.length) lines.push({section,segs:[{text:`${section==='urine'?'Examen Sumar de Urina':'Frotiu Sangvin'} (${displayDate(date)}): `},...join(rows.map(r=>[{text:`${/^sediment/i.test(r.rawName)?'Sediment – ':''}${r.name}`,bold:true},{text:' '},val(r,r.value),{text:`${r.unit?' '+r.unit:''}${referenceText(r)}`}]),', '),{text:'.'}]});
+      const smearNotes=section==='smear'?results.filter(r=>r.section===section && r.date===date && r.note):[];
+      if(rows.length || smearNotes.length) lines.push({section,segs:[{text:`${section==='urine'?'Examen Sumar de Urina':'Frotiu Sangvin'} (${displayDate(section==='smear'?date.split('T')[0]??date:date)}): `},...join(rows.map(r=>[{text:`${/^sediment/i.test(r.rawName)?'Sediment – ':''}${r.name}`,bold:true},{text:' '},val(r,r.value),{text:`${r.unit?(section==='smear' && r.unit==='%'?'':' ')+r.unit:''}${referenceText(r)}`}]),', '),...(smearNotes.length?[{text:rows.length?', ':''},...join(smearNotes.map(r=>[{text:r.value.replace(/\.+$/,'')}]),'; ')]:[]),{text:'.'}]});
     }
   }
-  const notes=results.filter(r=>r.note).sort((a,b)=>rank('notes',a.name)-rank('notes',b.name));
+  const notes=results.filter(r=>r.note && r.section!=='smear' && r.interpretationFor===undefined).sort((a,b)=>rank('notes',a.name)-rank('notes',b.name));
   if(notes.length) lines.push({section:'notes',segs:[{text:'Observații probe: '},...join(notes.map(r=>[{text:`${r.name} (${displayDate(r.date)}):`,bold:true},{text:` ${r.value}`}]),'; '),{text:'.'}]});
   const defaults = ['blood','urine','smear','notes'];
   return lines.sort((a,b)=>(positions.get(sectionKey(a.section)) ?? positions.size+defaults.indexOf(a.section))-(positions.get(sectionKey(b.section)) ?? positions.size+defaults.indexOf(b.section))).map(line=>line.segs);

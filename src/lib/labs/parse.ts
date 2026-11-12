@@ -25,6 +25,17 @@ export function splitReference(text: string) {
   const unit=units?.[0]??'';
   return {reference:clean(unit?text.slice(0,text.length-unit.length):text),unit:clean(unit)};
 }
+const isSmear=(text:string)=>/frotiu\s+(?:sangvin|sanguin)/.test(normalize(text));
+// Interpret only explicit laboratory conclusions, never infer assay cutoffs from normal ranges.
+function attachInterpretation(results:LabResult[], index:number|undefined, comment:LabResult) {
+  if(index===undefined) return;
+  const result=results[index];
+  if(!result || !['Ac Anti HCV','Antigen HBs','Ac Anti HIV'].includes(result.name)) return;
+  const value=normalize(comment.value).replace(/[.!]+$/,'');
+  if(!['negativ','pozitiv','neconcludent','echivoc','reactiv','nereactiv','non-reactiv'].includes(value)) return;
+  result.interpretation=value;
+  comment.interpretationFor=index;
+}
 export function parseHtml(html: string, filename: string, id: string): LabReport {
   const doc=new DOMParser().parseFromString(html,'text/html');
   doc.querySelectorAll('script,style,iframe,object,embed,link,img,input').forEach(el=>el.remove());
@@ -33,22 +44,32 @@ export function parseHtml(html: string, filename: string, id: string): LabReport
   for(const table of doc.querySelectorAll('table.Rap_table_class_generic,table.Rap_table_class_buletin_2')) {
     const heading=normalize(table.querySelector('thead')?.textContent??'');
     if(!heading.includes('denumire analiza') || !heading.includes('rezultat')) continue;
-    const section:LabResult['section']=/urini|urina/.test(heading)?'urine':/frotiu/.test(heading)?'smear':'blood';
+    const baseSection:LabResult['section']=/urini|urina/.test(heading)?'urine':isSmear(heading)?'smear':'blood';
+    let section=baseSection, previousResult:number|undefined;
     for(const row of table.querySelectorAll(':scope > tbody > tr')) {
       const cells=[...row.children].filter(c=>c.tagName==='TD'||c.tagName==='TH');
       const [nameCell,valueCell,referenceCell]=cells;
-      if(!nameCell||!valueCell) continue;
+      if(!nameCell) continue;
       const first=nameCell.cloneNode(true) as Element;
       first.querySelectorAll('i,img').forEach(el=>el.remove());
       const rawName=clean(first.textContent??'');
+      if(cells.length===1 && Number(nameCell.getAttribute('colspan'))===3 && row.classList.contains('analiza')) {
+        section=isSmear(rawName)?'smear':baseSection;
+        previousResult=undefined;
+        continue;
+      }
+      if(!valueCell) continue;
       const value=clean(valueCell.textContent??'');
       if(!rawName||!value) continue;
       if(cells.length===2 && valueCell.getAttribute('colspan')==='2') {
-        results.push(resultFromCells(rawName,value,'','',section,meta.collectedAt,filename,true)); continue;
+        const comment=resultFromCells(rawName,value,'','',section,meta.collectedAt,filename,true);
+        if(/^comentari/.test(normalize(rawName))) attachInterpretation(results,previousResult,comment);
+        results.push(comment); continue;
       }
       if(!referenceCell||cells.length!==3||cells.some(c=>Number(c.getAttribute('colspan')??1)>1)) continue;
       const {unit,reference}=unitAndReference(referenceCell);
-      results.push(resultFromCells(rawName,value,unit,reference,section,meta.collectedAt,filename));
+      previousResult=results.length;
+      results.push(resultFromCells(rawName,value,unit,/^[-–\s]*$/.test(reference)?'':reference,section,meta.collectedAt,filename));
     }
   }
   if(!results.length) throw new Error('Nu s-au găsit rezultate în tabelele buletinului HTML.');
@@ -69,10 +90,11 @@ export function parsePdfItems(items: PositionedText[], filename: string, id: str
   const text=lines.map(l=>l.items.map(i=>i.text).join(' ')).join('\n');
   const meta=metadata(text); const results:LabResult[]=[]; const warnings:string[]=[];
   let section:LabResult['section']='blood';
-  let resultX:number|undefined, referenceX:number|undefined, inTable=false;
+  let resultX:number|undefined, referenceX:number|undefined, inTable=false, previousResult:number|undefined;
   for(const line of lines) {
     const s=normalize(line.items.map(i=>i.text).join(' '));
     if (/^(?:hematologie|chimie clinica|coagulare|imunologie|urini|frotiu)/.test(s)) { section=/urini|urina/.test(s)?'urine':/frotiu/.test(s)?'smear':'blood'; }
+    if(isSmear(s)) {section='smear';previousResult=undefined;continue;}
     const resultHeading=line.items.find(i=>/^rezultat$/i.test(clean(i.text)));
     const referenceHeading=line.items.find(i=>/interval biologic|referinta\/um/i.test(normalize(i.text)));
     if(resultHeading) { resultX=resultHeading.x; if(referenceHeading) referenceX=referenceHeading.x; inTable=true; continue; }
@@ -84,10 +106,16 @@ export function parsePdfItems(items: PositionedText[], filename: string, id: str
     const ref=clean(line.items.filter(i=>i.x>=fx-12).map(i=>i.text).join(' '));
     if(!name||/^\(tip proba|\(metoda|examen complet de urina/.test(normalize(name))) continue;
     if(!value) continue;
+    if(/^comentari/.test(normalize(name))) {
+      const comment=resultFromCells(name,clean([value,ref].filter(Boolean).join(' ')),'','',section,meta.collectedAt,filename,true);
+      attachInterpretation(results,previousResult,comment);
+      results.push(comment);continue;
+    }
     // Only result-shaped values; explanatory paragraphs never become measurements.
     if(!/^(?:[<>≤≥]?\s*-?\d|neg|poz|norm|rare|absent|prezent|camp|ser hemolizat)/i.test(value)) {warnings.push('Un rând PDF nu a fost recunoscut; verifică documentul original.');continue;}
     const parsed=splitReference(ref);
-    results.push(resultFromCells(name.replace(/\s*\(Tip proba:.*$/i,''),value,parsed.unit,parsed.reference,section,meta.collectedAt,filename,/ser hemolizat/i.test(value)));
+    previousResult=results.length;
+    results.push(resultFromCells(name.replace(/\s*\(Tip proba:.*$/i,''),value,parsed.unit,/^[-–\s]*$/.test(parsed.reference)?'':parsed.reference,section,meta.collectedAt,filename,/ser hemolizat/i.test(value)));
   }
   if(!results.length) throw new Error('PDF fără tabel text recunoscut. PDF-urile scanate nu pot fi citite; încarcă exportul HTML sau un PDF cu text selectabil.');
   if(!meta.collectedAt) warnings.push('Data recoltării nu a fost identificată. Completeaz-o înainte de formatare.');
