@@ -20,3 +20,4 @@
 - Laboratory text uses a session-only Tiptap editor with HTML/plain-text clipboard and exports; reference exclusions are keyed by report and result index before formatting — preserves editable styles and never deletes clinical measurements when hiding ranges.
 - Blood result series group by analysis and measurement unit, not reference range or exclusion; identical visible ranges appear once and differing visible ranges stay beside their own values — prevents repeated analysis names without misrepresenting normal ranges.
 - Laboratory subsection headings determine smear ownership; hepatitis/HIV display conclusions come only from explicitly associated bulletin comments, retaining numeric measurements and source comments — prevents omitted smear results and invented assay interpretations.
+- Load the AdSense verification/Auto ads script once in the root head — both features share one loader across all pages.
